@@ -4,28 +4,34 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produção Diária - Gestão de Equipa</title>
-
-    <!-- Tailwind -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- Lucide Icons -->
     <script src="https://unpkg.com/lucide@latest"></script>
-
-    <!-- SheetJS (XLSX) -->
-    <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
-
     <style>
         body {
-            background-image: linear-gradient(rgba(241,245,249,0.5), rgba(241,245,249,0.92)), url('unnamed.jpg');
+            background-image: linear-gradient(rgba(241, 245, 249, 0.5), rgba(241, 245, 249, 0.92)), url('unnamed.jpg');
             background-size: cover;
+            background-position: center;
             background-attachment: fixed;
+            background-repeat: no-repeat;
         }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
-        .tab-button.active {
-            background-color: rgba(248,250,252,0.9);
-            border-bottom: 3px solid #2563eb;
+        .tab-button.active { 
+            background-color: rgba(248, 250, 252, 0.9);
+            border-bottom: 3px solid #2563eb; 
+            color: #1e40af;
             font-weight: 800;
+        }
+        .card-animation {
+            animation: fadeInScale 0.3s ease-out forwards;
+        }
+        @keyframes fadeInScale {
+            from { opacity: 0; transform: scale(0.95); }
+            to { opacity: 1; transform: scale(1); }
+        }
+        .card-concluir {
+            transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
         }
         .card-concluir.success {
             background-color: #d1fae5 !important;
@@ -34,122 +40,301 @@
             opacity: 0;
             pointer-events: none;
         }
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Ajuste para painéis brancos ficarem ligeiramente translúcidos */
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+        }
     </style>
 </head>
-
 <body class="min-h-screen font-sans text-slate-900">
 
-<main class="max-w-7xl mx-auto px-4 py-6">
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
+                    <i data-lucide="layers" class="text-white w-6 h-6"></i>
+                </div>
+                <div>
+                    <h1 class="text-lg font-black text-slate-800 leading-none">PRODUÇÃO DIÁRIA</h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Controlo de Seriais e Atividades</p>
+                </div>
+            </div>
 
-    <div class="flex gap-2 mb-6">
-        <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active px-4 py-2 rounded-xl">Tiago</button>
-        <button onclick="switchTab('alana')" id="btn-alana" class="tab-button px-4 py-2 rounded-xl">Alana</button>
-        <button onclick="switchTab('william')" id="btn-william" class="tab-button px-4 py-2 rounded-xl">William</button>
-        <button onclick="switchTab('concluidos')" id="btn-concluidos" class="tab-button px-4 py-2 rounded-xl">Concluídos</button>
-    </div>
+            <div class="relative w-full md:w-64">
+                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar registo..." class="w-full pl-10 pr-4 py-2 bg-slate-100/80 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 transition-all">
+            </div>
+        </div>
+    </header>
 
-    <div id="export-area" class="mb-4 hidden">
-        <button onclick="exportarConcluidosDoDiaXLSX()"
-            class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold text-xs flex items-center gap-2">
-            <i data-lucide="file-spreadsheet"></i>
-            EXPORTAR XLSX DO DIA
-        </button>
-    </div>
+    <main class="max-w-7xl mx-auto px-4 py-6">
+        <!-- Navegação -->
+        <div class="flex glass-panel rounded-2xl shadow-sm border border-slate-200 mb-6 p-1 overflow-x-auto no-scrollbar">
+            <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all">
+                <i data-lucide="user" class="w-4 h-4"></i> Tiago
+            </button>
+            <button onclick="switchTab('alana')" id="btn-alana" class="tab-button flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all">
+                <i data-lucide="user" class="w-4 h-4"></i> Alana
+            </button>
+            <button onclick="switchTab('william')" id="btn-william" class="tab-button flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all">
+                <i data-lucide="user" class="w-4 h-4"></i> William
+            </button>
+            <button onclick="switchTab('concluidos')" id="btn-concluidos" class="tab-button flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all text-emerald-600">
+                <i data-lucide="check-circle-2" class="w-4 h-4"></i> Concluídos
+            </button>
+        </div>
 
-    <div id="tiago" class="tab-content active"><div id="container-tiago"></div></div>
-    <div id="alana" class="tab-content"><div id="container-alana"></div></div>
-    <div id="william" class="tab-content"><div id="container-william"></div></div>
-    <div id="concluidos" class="tab-content"><div id="container-concluidos"></div></div>
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
+            <!-- Importação -->
+            <div id="import-panel" class="lg:col-span-1 space-y-4">
+                <div class="glass-panel p-5 rounded-3xl shadow-sm border border-slate-200">
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-500"></i>
+                            <h2 class="font-bold text-slate-700">Importar: <span id="current-name" class="text-blue-600">Tiago</span></h2>
+                        </div>
+                        <button onclick="clearCurrentTab()" class="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-tighter transition-colors">Limpar Aba</button>
+                    </div>
+                    
+                    <div class="space-y-3">
+                        <div class="relative group">
+                            <div class="h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-white/50 group-hover:bg-blue-50 group-hover:border-blue-200 transition-all cursor-pointer">
+                                <i data-lucide="upload" class="w-8 h-8 text-slate-300 group-hover:text-blue-500"></i>
+                                <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Selecionar CSV</span>
+                            </div>
+                            <input type="file" id="file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileUpload(event)">
+                        </div>
 
-</main>
+                        <textarea id="paste-area" placeholder="Ou cole aqui os dados do Excel..." class="w-full h-24 p-4 border border-slate-100 rounded-2xl text-xs bg-white/50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"></textarea>
+                        
+                        <button onclick="processPastedData()" class="w-full bg-slate-800 text-white py-3 rounded-2xl font-bold text-xs hover:bg-black transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2">
+                            <i data-lucide="zap" class="w-4 h-4"></i> ADICIONAR DADOS
+                        </button>
+                    </div>
+                </div>
 
-<script>
-const DB_NAME = 'producao_diaria_db';
-let currentTab = 'tiago';
+                <div class="bg-blue-600/90 backdrop-blur-md p-5 rounded-3xl text-white shadow-lg shadow-blue-100">
+                    <h3 class="font-bold text-sm mb-3">Resumo Local</h3>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="bg-white/10 p-3 rounded-2xl">
+                            <p class="text-[10px] opacity-70 uppercase font-bold">Chamados</p>
+                            <p class="text-xl font-black" id="stat-total">0</p>
+                        </div>
+                        <div class="bg-white/10 p-3 rounded-2xl">
+                            <p class="text-[10px] opacity-70 uppercase font-bold">Estado</p>
+                            <p class="text-[10px] font-black pt-1 leading-tight">DADOS GUARDADOS NO NAVEGADOR</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
 
-let store = JSON.parse(localStorage.getItem(DB_NAME)) || {
-    tiago: [], alana: [], william: [], concluidos: []
-};
+            <!-- Grid -->
+            <div id="cards-grid" class="lg:col-span-2">
+                <div id="tiago" class="tab-content active"><div class="grid grid-cols-1 gap-4" id="container-tiago"></div></div>
+                <div id="alana" class="tab-content"><div class="grid grid-cols-1 gap-4" id="container-alana"></div></div>
+                <div id="william" class="tab-content"><div class="grid grid-cols-1 gap-4" id="container-william"></div></div>
+                <div id="concluidos" class="tab-content"><div class="grid grid-cols-1 gap-4" id="container-concluidos"></div></div>
 
-function save() {
-    localStorage.setItem(DB_NAME, JSON.stringify(store));
-}
+                <div id="empty-state" class="hidden py-20 text-center opacity-30">
+                    <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i>
+                    <p class="text-sm font-bold uppercase tracking-widest text-slate-800">Nenhum dado encontrado</p>
+                </div>
+            </div>
+        </div>
+    </main>
 
-function switchTab(tab) {
-    currentTab = tab;
-    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
-    document.querySelectorAll('.tab-button').forEach(b => b.classList.remove('active'));
+    <script>
+        const DB_NAME = 'producao_diaria_db';
+        let currentTab = 'tiago';
+        
+        let store = JSON.parse(localStorage.getItem(DB_NAME)) || { 
+            tiago: [], alana: [], william: [], concluidos: [] 
+        };
 
-    document.getElementById(tab).classList.add('active');
-    document.getElementById('btn-' + tab).classList.add('active');
+        const camposSeriais = [
+            "Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", 
+            "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"
+        ];
 
-    document.getElementById('export-area').classList.toggle('hidden', tab !== 'concluidos');
+        function saveToLocalStorage() {
+            localStorage.setItem(DB_NAME, JSON.stringify(store));
+            updateStats();
+        }
 
-    renderCards();
-}
-
-function concluirChamado(id) {
-    const index = store[currentTab].findIndex(i => i._id === id);
-    if (index === -1) return;
-
-    const item = store[currentTab].splice(index, 1)[0];
-    item._concluidoEm = new Date().toLocaleString('pt-BR');
-    store.concluidos.push(item);
-    save();
-    renderCards();
-}
-
-function renderCards() {
-    const container = document.getElementById('container-' + currentTab);
-    container.innerHTML = '';
-
-    store[currentTab].forEach(item => {
-        const div = document.createElement('div');
-        div.className = 'border p-4 rounded-xl mb-3 bg-white';
-
-        div.innerHTML = `
-            <div class="font-bold mb-2">${item["Serial Rastreador"] || "Sem Serial"}</div>
-            ${currentTab !== 'concluidos' ?
-                `<button onclick="concluirChamado('${item._id}')"
-                 class="bg-emerald-500 text-white px-4 py-2 rounded-xl text-xs">
-                 Concluir</button>` :
-                `<span class="text-emerald-600 font-bold text-xs">Concluído em ${item._concluidoEm}</span>`
+        function switchTab(id) {
+            currentTab = id;
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.remove('active'));
+            document.querySelectorAll('.tab-button').forEach(el => el.classList.remove('active'));
+            document.getElementById(id).classList.add('active');
+            document.getElementById('btn-' + id).classList.add('active');
+            
+            document.getElementById('current-name').innerText = id.charAt(0).toUpperCase() + id.slice(1);
+            
+            const importPanel = document.getElementById('import-panel');
+            const cardsGrid = document.getElementById('cards-grid');
+            if(id === 'concluidos') {
+                importPanel.classList.add('hidden');
+                cardsGrid.classList.replace('lg:col-span-2', 'lg:col-span-3');
+            } else {
+                importPanel.classList.remove('hidden');
+                cardsGrid.classList.replace('lg:col-span-3', 'lg:col-span-2');
             }
-        `;
-        container.appendChild(div);
-    });
 
-    lucide.createIcons();
-}
+            renderCards();
+        }
 
-function exportarConcluidosDoDiaXLSX() {
-    const hoje = new Date().toLocaleDateString('pt-BR');
+        function handleFileUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    processData(e.target.result);
+                    document.getElementById('file-input').value = '';
+                };
+                reader.readAsText(file);
+            }
+        }
 
-    const dados = store.concluidos.filter(i =>
-        new Date(i._concluidoEm).toLocaleDateString('pt-BR') === hoje
-    );
+        function processPastedData() {
+            const text = document.getElementById('paste-area').value;
+            if (text.trim()) {
+                processData(text);
+                document.getElementById('paste-area').value = '';
+            }
+        }
 
-    if (!dados.length) {
-        alert('Nenhum concluído hoje');
-        return;
-    }
+        function processData(rawData) {
+            const lines = rawData.split(/\r?\n/).filter(l => l.trim() !== '');
+            if (lines.length < 2) return;
 
-    const planilha = dados.map(i => ({
-        "Serial Rastreador": i["Serial Rastreador"] || "",
-        "Iccid": i["Iccid"] || "",
-        "Branch": i["Branch"] || "",
-        "Branch Via Argo": i["Branch Via Argo"] || ""
-    }));
+            const separator = lines[0].includes(';') ? ';' : (lines[0].includes('\t') ? '\t' : ',');
+            const headers = lines[0].split(separator).map(h => h.replace(/"/g, '').trim());
+            
+            const data = lines.slice(1).map(line => {
+                const values = line.split(separator).map(v => v.replace(/"/g, '').trim());
+                let row = { 
+                    _id: 'ID-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9), 
+                    _origin: currentTab 
+                };
+                headers.forEach((header, i) => { row[header] = values[i] || ""; });
+                return row;
+            });
 
-    const ws = XLSX.utils.json_to_sheet(planilha);
-    const wb = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(wb, ws, "Concluidos");
+            store[currentTab] = [...store[currentTab], ...data];
+            saveToLocalStorage();
+            renderCards();
+        }
 
-    XLSX.writeFile(wb, `concluidos_${hoje.replace(/\//g,'-')}.xlsx`);
-}
+        function updateFieldValue(id, field, value) {
+            const item = store[currentTab].find(i => i._id === id);
+            if (item) {
+                item[field] = value;
+                saveToLocalStorage();
+            }
+        }
 
-window.onload = () => renderCards();
-</script>
+        function concluirChamado(id, event) {
+            const cardElement = event.currentTarget.closest('.card-concluir');
+            cardElement.classList.add('success');
 
+            setTimeout(() => {
+                const itemIndex = store[currentTab].findIndex(i => i._id === id);
+                if (itemIndex > -1) {
+                    const item = store[currentTab].splice(itemIndex, 1)[0];
+                    item._concluidoEm = new Date().toLocaleString();
+                    store.concluidos.push(item);
+                    saveToLocalStorage();
+                    renderCards();
+                }
+            }, 400);
+        }
+
+        function clearCurrentTab() {
+            if(confirm(`Tem certeza que deseja apagar TODOS os dados da aba ${currentTab}?`)) {
+                store[currentTab] = [];
+                saveToLocalStorage();
+                renderCards();
+            }
+        }
+
+        function renderCards() {
+            const container = document.getElementById('container-' + currentTab);
+            const emptyState = document.getElementById('empty-state');
+            const data = store[currentTab];
+            
+            container.innerHTML = '';
+            
+            if (data.length === 0) {
+                emptyState.classList.remove('hidden');
+            } else {
+                emptyState.classList.add('hidden');
+                data.forEach(item => {
+                    const isConcluido = currentTab === 'concluidos';
+                    const card = document.createElement('div');
+                    card.className = `card-concluir bg-white/80 p-6 rounded-[2rem] border-2 shadow-sm card-animation relative ${isConcluido ? 'border-emerald-100 bg-emerald-50/20' : 'border-white hover:shadow-xl'}`;
+                    
+                    let content = `
+                        <div class="flex justify-between items-center mb-6">
+                            <span class="bg-blue-50 text-blue-600 font-black px-3 py-1 rounded-full text-[10px] uppercase tracking-wider">${item._origin}</span>
+                            ${!isConcluido ? `
+                                <button onclick="concluirChamado('${item._id}', event)" class="bg-emerald-500 text-white px-4 py-2 rounded-2xl font-bold text-xs hover:bg-emerald-600 flex items-center gap-2">
+                                    <i data-lucide="check" class="w-4 h-4"></i> CONCLUIR
+                                </button>` : 
+                                `<span class="text-emerald-500 font-bold text-xs flex items-center gap-1"><i data-lucide="shield-check" class="w-4 h-4"></i> FINALIZADO</span>`}
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    `;
+
+                    camposSeriais.forEach(campo => {
+                        content += `
+                            <div class="bg-white/40 p-3 rounded-2xl border border-slate-100">
+                                <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">${campo}</label>
+                                <input type="text" value="${item[campo] || ''}" ${isConcluido ? 'disabled' : ''} 
+                                    onchange="updateFieldValue('${item._id}', '${campo}', this.value)" 
+                                    class="w-full bg-transparent text-sm font-bold text-slate-700 focus:outline-none focus:text-blue-600">
+                            </div>`;
+                    });
+
+                    content += `</div><div class="mt-4 pt-4 border-t border-dashed border-slate-100 flex flex-wrap gap-x-6 gap-y-2">`;
+                    Object.entries(item).forEach(([k, v]) => {
+                        if (!k.startsWith('_') && !camposSeriais.includes(k) && v) {
+                            content += `<div class="flex items-center gap-2"><span class="text-[9px] text-slate-400 font-bold uppercase">${k}:</span><span class="text-[10px] text-slate-600 font-black">${v}</span></div>`;
+                        }
+                    });
+                    if (isConcluido) content += `<div class="text-[9px] text-emerald-600 font-bold italic ml-auto">Concluído: ${item._concluidoEm}</div>`;
+                    
+                    card.innerHTML = content + `</div>`;
+                    container.appendChild(card);
+                });
+            }
+            updateStats();
+            lucide.createIcons();
+        }
+
+        function filterCards() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const cards = document.querySelectorAll(`#container-${currentTab} > div`);
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                const inputs = card.querySelectorAll('input');
+                let inputValues = "";
+                inputs.forEach(i => inputValues += i.value.toLowerCase());
+                card.style.display = (text.includes(query) || inputValues.includes(query)) ? 'block' : 'none';
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total').innerText = store[currentTab].length;
+        }
+
+        window.onload = () => {
+            renderCards();
+            lucide.createIcons();
+        };
+    </script>
 </body>
 </html>
