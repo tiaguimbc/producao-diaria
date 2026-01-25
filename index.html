@@ -58,7 +58,7 @@
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-6">
-        <!-- Navegação entre Funcionários -->
+        <!-- Navegação -->
         <div class="flex bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 p-1 overflow-x-auto no-scrollbar">
             <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all">
                 <i data-lucide="user" class="w-4 h-4"></i> Tiago
@@ -75,12 +75,15 @@
         </div>
 
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
-            <!-- Painel de Importação (Esquerda) -->
+            <!-- Importação -->
             <div id="import-panel" class="lg:col-span-1 space-y-4">
                 <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
-                    <div class="flex items-center gap-2 mb-4">
-                        <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-500"></i>
-                        <h2 class="font-bold text-slate-700">Importar para: <span id="current-name" class="text-blue-600">Tiago</span></h2>
+                    <div class="flex items-center justify-between mb-4">
+                        <div class="flex items-center gap-2">
+                            <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-500"></i>
+                            <h2 class="font-bold text-slate-700">Importar: <span id="current-name" class="text-blue-600">Tiago</span></h2>
+                        </div>
+                        <button onclick="clearCurrentTab()" class="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-tighter transition-colors">Limpar Aba</button>
                     </div>
                     
                     <div class="space-y-3">
@@ -101,21 +104,21 @@
                 </div>
 
                 <div class="bg-blue-600 p-5 rounded-3xl text-white shadow-lg shadow-blue-100">
-                    <h3 class="font-bold text-sm mb-3">Resumo</h3>
+                    <h3 class="font-bold text-sm mb-3">Resumo Local</h3>
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-white/10 p-3 rounded-2xl">
                             <p class="text-[10px] opacity-70 uppercase font-bold">Chamados</p>
                             <p class="text-xl font-black" id="stat-total">0</p>
                         </div>
                         <div class="bg-white/10 p-3 rounded-2xl">
-                            <p class="text-[10px] opacity-70 uppercase font-bold">Sessão</p>
-                            <p class="text-sm font-black pt-1" id="stat-date">--/--</p>
+                            <p class="text-[10px] opacity-70 uppercase font-bold">Estado</p>
+                            <p class="text-[10px] font-black pt-1 leading-tight">DADOS GUARDADOS NO NAVEGADOR</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Listagem de Cartões (Direita) -->
+            <!-- Grid -->
             <div id="cards-grid" class="lg:col-span-2">
                 <div id="tiago" class="tab-content active"><div class="grid grid-cols-1 gap-4" id="container-tiago"></div></div>
                 <div id="alana" class="tab-content"><div class="grid grid-cols-1 gap-4" id="container-alana"></div></div>
@@ -124,22 +127,31 @@
 
                 <div id="empty-state" class="hidden py-20 text-center opacity-30">
                     <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i>
-                    <p class="text-sm font-bold uppercase tracking-widest">Nenhum dado importado</p>
+                    <p class="text-sm font-bold uppercase tracking-widest">Nenhum dado encontrado</p>
                 </div>
             </div>
         </div>
     </main>
 
     <script>
+        const DB_NAME = 'producao_diaria_db';
         let currentTab = 'tiago';
-        let store = { tiago: [], alana: [], william: [], concluidos: [] };
+        
+        // Inicializa o store carregando do LocalStorage ou usando objeto vazio
+        let store = JSON.parse(localStorage.getItem(DB_NAME)) || { 
+            tiago: [], alana: [], william: [], concluidos: [] 
+        };
 
         const camposSeriais = [
             "Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", 
             "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"
         ];
 
-        document.getElementById('stat-date').innerText = new Date().toLocaleDateString('pt-PT', {day: '2-digit', month: '2-digit'});
+        // Guardar dados sempre que o store mudar
+        function saveToLocalStorage() {
+            localStorage.setItem(DB_NAME, JSON.stringify(store));
+            updateStats();
+        }
 
         function switchTab(id) {
             currentTab = id;
@@ -201,12 +213,16 @@
             });
 
             store[currentTab] = [...store[currentTab], ...data];
+            saveToLocalStorage();
             renderCards();
         }
 
         function updateFieldValue(id, field, value) {
             const item = store[currentTab].find(i => i._id === id);
-            if (item) item[field] = value;
+            if (item) {
+                item[field] = value;
+                saveToLocalStorage();
+            }
         }
 
         function concluirChamado(id, event) {
@@ -219,9 +235,18 @@
                     const item = store[currentTab].splice(itemIndex, 1)[0];
                     item._concluidoEm = new Date().toLocaleString();
                     store.concluidos.push(item);
+                    saveToLocalStorage();
                     renderCards();
                 }
             }, 400);
+        }
+
+        function clearCurrentTab() {
+            if(confirm(`Tem certeza que deseja apagar TODOS os dados da aba ${currentTab}?`)) {
+                store[currentTab] = [];
+                saveToLocalStorage();
+                renderCards();
+            }
         }
 
         function renderCards() {
@@ -274,11 +299,31 @@
                     container.appendChild(card);
                 });
             }
-            document.getElementById('stat-total').innerText = data.length;
+            updateStats();
             lucide.createIcons();
         }
 
-        lucide.createIcons();
+        function filterCards() {
+            const query = document.getElementById('search-input').value.toLowerCase();
+            const cards = document.querySelectorAll(`#container-${currentTab} > div`);
+            cards.forEach(card => {
+                const text = card.innerText.toLowerCase();
+                const inputs = card.querySelectorAll('input');
+                let inputValues = "";
+                inputs.forEach(i => inputValues += i.value.toLowerCase());
+                card.style.display = (text.includes(query) || inputValues.includes(query)) ? 'block' : 'none';
+            });
+        }
+
+        function updateStats() {
+            document.getElementById('stat-total').innerText = store[currentTab].length;
+        }
+
+        // Renderização inicial
+        window.onload = () => {
+            renderCards();
+            lucide.createIcons();
+        };
     </script>
 </body>
 </html>
