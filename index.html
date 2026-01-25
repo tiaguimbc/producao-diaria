@@ -7,10 +7,17 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
+        body {
+            background-image: linear-gradient(rgba(241, 245, 249, 0.92), rgba(241, 245, 249, 0.92)), url('unnamed.jpg');
+            background-size: cover;
+            background-position: center;
+            background-attachment: fixed;
+            background-repeat: no-repeat;
+        }
         .tab-content { display: none; }
         .tab-content.active { display: block; }
         .tab-button.active { 
-            background-color: #f8fafc;
+            background-color: rgba(248, 250, 252, 0.9);
             border-bottom: 3px solid #2563eb; 
             color: #1e40af;
             font-weight: 800;
@@ -24,6 +31,7 @@
         }
         .card-concluir {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            backdrop-filter: blur(8px);
         }
         .card-concluir.success {
             background-color: #d1fae5 !important;
@@ -34,11 +42,17 @@
         }
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+        
+        /* Ajuste para painéis brancos ficarem ligeiramente translúcidos */
+        .glass-panel {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+        }
     </style>
 </head>
-<body class="bg-[#f1f5f9] min-h-screen font-sans text-slate-900">
+<body class="min-h-screen font-sans text-slate-900">
 
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <header class="bg-white/90 backdrop-blur-md border-b border-slate-200 sticky top-0 z-30 shadow-sm">
         <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
             <div class="flex items-center gap-3">
                 <div class="bg-blue-600 p-2 rounded-xl shadow-lg shadow-blue-200">
@@ -52,14 +66,14 @@
 
             <div class="relative w-full md:w-64">
                 <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar registo..." class="w-full pl-10 pr-4 py-2 bg-slate-100 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 transition-all">
+                <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar registo..." class="w-full pl-10 pr-4 py-2 bg-slate-100/80 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 transition-all">
             </div>
         </div>
     </header>
 
     <main class="max-w-7xl mx-auto px-4 py-6">
         <!-- Navegação -->
-        <div class="flex bg-white rounded-2xl shadow-sm border border-slate-200 mb-6 p-1 overflow-x-auto no-scrollbar">
+        <div class="flex glass-panel rounded-2xl shadow-sm border border-slate-200 mb-6 p-1 overflow-x-auto no-scrollbar">
             <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-sm flex items-center justify-center gap-2 rounded-xl transition-all">
                 <i data-lucide="user" class="w-4 h-4"></i> Tiago
             </button>
@@ -77,7 +91,7 @@
         <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
             <!-- Importação -->
             <div id="import-panel" class="lg:col-span-1 space-y-4">
-                <div class="bg-white p-5 rounded-3xl shadow-sm border border-slate-200">
+                <div class="glass-panel p-5 rounded-3xl shadow-sm border border-slate-200">
                     <div class="flex items-center justify-between mb-4">
                         <div class="flex items-center gap-2">
                             <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-500"></i>
@@ -88,14 +102,14 @@
                     
                     <div class="space-y-3">
                         <div class="relative group">
-                            <div class="h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50 group-hover:bg-blue-50 group-hover:border-blue-200 transition-all cursor-pointer">
+                            <div class="h-32 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-white/50 group-hover:bg-blue-50 group-hover:border-blue-200 transition-all cursor-pointer">
                                 <i data-lucide="upload" class="w-8 h-8 text-slate-300 group-hover:text-blue-500"></i>
                                 <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Selecionar CSV</span>
                             </div>
                             <input type="file" id="file-input" accept=".csv" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="handleFileUpload(event)">
                         </div>
 
-                        <textarea id="paste-area" placeholder="Ou cole aqui os dados do Excel..." class="w-full h-24 p-4 border border-slate-100 rounded-2xl text-xs bg-slate-50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"></textarea>
+                        <textarea id="paste-area" placeholder="Ou cole aqui os dados do Excel..." class="w-full h-24 p-4 border border-slate-100 rounded-2xl text-xs bg-white/50 focus:bg-white focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none"></textarea>
                         
                         <button onclick="processPastedData()" class="w-full bg-slate-800 text-white py-3 rounded-2xl font-bold text-xs hover:bg-black transition-all shadow-lg shadow-slate-200 flex items-center justify-center gap-2">
                             <i data-lucide="zap" class="w-4 h-4"></i> ADICIONAR DADOS
@@ -103,7 +117,7 @@
                     </div>
                 </div>
 
-                <div class="bg-blue-600 p-5 rounded-3xl text-white shadow-lg shadow-blue-100">
+                <div class="bg-blue-600/90 backdrop-blur-md p-5 rounded-3xl text-white shadow-lg shadow-blue-100">
                     <h3 class="font-bold text-sm mb-3">Resumo Local</h3>
                     <div class="grid grid-cols-2 gap-3">
                         <div class="bg-white/10 p-3 rounded-2xl">
@@ -127,7 +141,7 @@
 
                 <div id="empty-state" class="hidden py-20 text-center opacity-30">
                     <i data-lucide="inbox" class="w-12 h-12 mx-auto mb-2"></i>
-                    <p class="text-sm font-bold uppercase tracking-widest">Nenhum dado encontrado</p>
+                    <p class="text-sm font-bold uppercase tracking-widest text-slate-800">Nenhum dado encontrado</p>
                 </div>
             </div>
         </div>
@@ -137,7 +151,6 @@
         const DB_NAME = 'producao_diaria_db';
         let currentTab = 'tiago';
         
-        // Inicializa o store carregando do LocalStorage ou usando objeto vazio
         let store = JSON.parse(localStorage.getItem(DB_NAME)) || { 
             tiago: [], alana: [], william: [], concluidos: [] 
         };
@@ -147,7 +160,6 @@
             "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"
         ];
 
-        // Guardar dados sempre que o store mudar
         function saveToLocalStorage() {
             localStorage.setItem(DB_NAME, JSON.stringify(store));
             updateStats();
@@ -263,7 +275,7 @@
                 data.forEach(item => {
                     const isConcluido = currentTab === 'concluidos';
                     const card = document.createElement('div');
-                    card.className = `card-concluir bg-white p-6 rounded-[2rem] border-2 shadow-sm card-animation relative ${isConcluido ? 'border-emerald-100 bg-emerald-50/10' : 'border-white hover:shadow-xl'}`;
+                    card.className = `card-concluir bg-white/80 p-6 rounded-[2rem] border-2 shadow-sm card-animation relative ${isConcluido ? 'border-emerald-100 bg-emerald-50/20' : 'border-white hover:shadow-xl'}`;
                     
                     let content = `
                         <div class="flex justify-between items-center mb-6">
@@ -279,7 +291,7 @@
 
                     camposSeriais.forEach(campo => {
                         content += `
-                            <div class="bg-slate-50 p-3 rounded-2xl border border-slate-100">
+                            <div class="bg-white/40 p-3 rounded-2xl border border-slate-100">
                                 <label class="block text-[9px] font-black text-slate-400 uppercase mb-1">${campo}</label>
                                 <input type="text" value="${item[campo] || ''}" ${isConcluido ? 'disabled' : ''} 
                                     onchange="updateFieldValue('${item._id}', '${campo}', this.value)" 
@@ -319,7 +331,6 @@
             document.getElementById('stat-total').innerText = store[currentTab].length;
         }
 
-        // Renderização inicial
         window.onload = () => {
             renderCards();
             lucide.createIcons();
