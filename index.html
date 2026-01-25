@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Produção Diária - Gestão de Chamados</title>
+    <title>Produção Diária - Gestão de Equipa</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <style>
@@ -43,7 +43,6 @@
         .no-scrollbar::-webkit-scrollbar { display: none; }
         .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
         
-        /* Ajuste para painéis brancos ficarem ligeiramente translúcidos */
         .glass-panel {
             background-color: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(12px);
@@ -59,14 +58,19 @@
                     <i data-lucide="layers" class="text-white w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-black text-slate-800 leading-none">PRODUÇÃO DIÁRIA</h1>
-                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Controle de Chamados PCP</p>
+                    <h1 class="text-lg font-black text-slate-800 leading-none uppercase">Produção Diária</h1>
+                    <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Controlo de Seriais e Atividades</p>
                 </div>
             </div>
 
-            <div class="relative w-full md:w-64">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar registo..." class="w-full pl-10 pr-4 py-2 bg-slate-100/80 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 transition-all">
+            <div class="relative w-full md:w-64 flex items-center gap-2">
+                <div class="relative flex-1">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar registo..." class="w-full pl-10 pr-4 py-2 bg-slate-100/80 border-none rounded-full text-sm focus:ring-2 focus:ring-blue-500 transition-all">
+                </div>
+                <button onclick="exportToCSV()" title="Exportar Concluídos" class="p-2 bg-emerald-100 text-emerald-700 rounded-full hover:bg-emerald-200 transition-colors">
+                    <i data-lucide="download" class="w-5 h-5"></i>
+                </button>
             </div>
         </div>
     </header>
@@ -97,7 +101,10 @@
                             <i data-lucide="plus-circle" class="w-5 h-5 text-emerald-500"></i>
                             <h2 class="font-bold text-slate-700">Importar: <span id="current-name" class="text-blue-600">Tiago</span></h2>
                         </div>
-                        <button onclick="clearCurrentTab()" class="text-[10px] font-bold text-red-400 hover:text-red-600 uppercase tracking-tighter transition-colors">Limpar Aba</button>
+                        <!-- Botão de Limpeza conforme o print -->
+                        <button onclick="clearCurrentTab()" class="text-[10px] font-bold text-red-500 hover:text-red-700 uppercase tracking-tighter transition-colors">
+                            LIMPAR ABA
+                        </button>
                     </div>
                     
                     <div class="space-y-3">
@@ -126,13 +133,13 @@
                         </div>
                         <div class="bg-white/10 p-3 rounded-2xl">
                             <p class="text-[10px] opacity-70 uppercase font-bold">Estado</p>
-                            <p class="text-[10px] font-black pt-1 leading-tight">DADOS GUARDADOS NO NAVEGADOR</p>
+                            <p class="text-[10px] font-black pt-1 leading-tight uppercase">Dados Seguros</p>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <!-- Grid -->
+            <!-- Grid de Cartões -->
             <div id="cards-grid" class="lg:col-span-2">
                 <div id="tiago" class="tab-content active"><div class="grid grid-cols-1 gap-4" id="container-tiago"></div></div>
                 <div id="alana" class="tab-content"><div class="grid grid-cols-1 gap-4" id="container-alana"></div></div>
@@ -218,7 +225,8 @@
                 const values = line.split(separator).map(v => v.replace(/"/g, '').trim());
                 let row = { 
                     _id: 'ID-' + Date.now() + '-' + Math.random().toString(36).substr(2, 9), 
-                    _origin: currentTab 
+                    _origin: currentTab,
+                    _createdAt: new Date().toISOString()
                 };
                 headers.forEach((header, i) => { row[header] = values[i] || ""; });
                 return row;
@@ -246,7 +254,7 @@
                 if (itemIndex > -1) {
                     const item = store[currentTab].splice(itemIndex, 1)[0];
                     item._concluidoEm = new Date().toLocaleString();
-                    store.concluidos.push(item);
+                    store.concluidos.unshift(item);
                     saveToLocalStorage();
                     renderCards();
                 }
@@ -254,7 +262,8 @@
         }
 
         function clearCurrentTab() {
-            if(confirm(`Tem certeza que deseja apagar TODOS os dados da aba ${currentTab}?`)) {
+            const tabName = currentTab.charAt(0).toUpperCase() + currentTab.slice(1);
+            if(confirm(`Tem certeza que deseja apagar TODOS os dados da aba ${tabName}? Esta ação é irreversível.`)) {
                 store[currentTab] = [];
                 saveToLocalStorage();
                 renderCards();
@@ -329,6 +338,23 @@
 
         function updateStats() {
             document.getElementById('stat-total').innerText = store[currentTab].length;
+        }
+
+        function exportToCSV() {
+            const data = store.concluidos;
+            if(data.length === 0) return alert("Não existem dados concluídos para exportar.");
+            const headers = Array.from(new Set(data.flatMap(obj => Object.keys(obj))));
+            const csvRows = [headers.join(';')];
+            for (const row of data) {
+                const values = headers.map(header => `"${(row[header] || "").toString().replace(/"/g, '""')}"`);
+                csvRows.push(values.join(';'));
+            }
+            const blob = new Blob(["\ufeff" + csvRows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement("a");
+            link.href = url;
+            link.download = `producao_export_${new Date().toISOString().slice(0,10)}.csv`;
+            link.click();
         }
 
         window.onload = () => {
