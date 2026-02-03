@@ -6,8 +6,11 @@
     <title>Produção Diária - PCP</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Biblioteca para ler Excel (XLSX) -->
+    <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
+            /* Certifique-se que a imagem unnamed.jpg existe na mesma pasta ou use uma URL completa */
             background-image: linear-gradient(rgba(248, 250, 252, 0.7), rgba(248, 250, 252, 0.8)), url('unnamed.jpg');
             background-size: cover;
             background-position: center;
@@ -70,7 +73,6 @@
     </div>
 
     <!-- Elementos ocultos para envio via iframe -->
-    <!-- Adicionada verificação no onload para evitar ReferenceError -->
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof finalizeSubmit === 'function') finalizeSubmit()"></iframe>
 
     <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
@@ -80,7 +82,7 @@
                     <i data-lucide="layers" class="text-white w-6 h-6"></i>
                 </div>
                 <div>
-                    <h1 class="text-lg font-black text-slate-800 leading-none uppercase">Produção Diária - PCP</h1>
+                    <h1 class="text-lg font-black text-slate-800 leading-none uppercase">Produção Diária - PCP </h1>
                     <p class="text-[10px] text-slate-400 font-bold uppercase tracking-widest mt-1">Registro de Chamados Diários</p>
                 </div>
             </div>
@@ -122,10 +124,11 @@
                     <div class="space-y-3">
                         <label class="relative block group">
                             <div class="h-28 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50 group-hover:bg-blue-50 group-hover:border-blue-200 transition-all cursor-pointer">
-                                <i data-lucide="file-up" class="w-8 h-8 text-slate-300 group-hover:text-blue-500"></i>
-                                <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Carregar CSV</span>
+                                <i data-lucide="file-spreadsheet" class="w-8 h-8 text-slate-300 group-hover:text-blue-500"></i>
+                                <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Carregar Excel ou CSV</span>
                             </div>
-                            <input type="file" id="file-input" accept=".csv" class="hidden" onchange="handleFileUpload(event)">
+                            <!-- Aceita CSV, XLSX e XLS -->
+                            <input type="file" id="file-input" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
                         </label>
                         <textarea id="paste-area" placeholder="Cole aqui as linhas do Excel..." class="w-full h-24 p-4 border border-slate-200 rounded-2xl text-xs focus:ring-2 focus:ring-blue-500 outline-none transition-all resize-none bg-slate-50 custom-scroll"></textarea>
                         <button onclick="processPastedData()" class="w-full bg-slate-900 text-white py-3 rounded-2xl font-bold text-xs hover:bg-black transition-all flex items-center justify-center gap-2 shadow-lg">
@@ -265,39 +268,111 @@
             render();
         }
 
+        // ==========================================
+        // LÓGICA DE IMPORTAÇÃO (CSV E EXCEL)
+        // ==========================================
+
         function handleFileUpload(event) {
             const file = event.target.files[0];
-            if (file) {
+            if (!file) return;
+
+            const fileName = file.name.toLowerCase();
+
+            // Lógica para EXCEL (.xlsx, .xls)
+            if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
                 const reader = new FileReader();
-                reader.onload = (e) => processData(e.target.result);
+                reader.onload = (e) => {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    // Pega a primeira aba da planilha
+                    const firstSheetName = workbook.SheetNames[0];
+                    const worksheet = workbook.Sheets[firstSheetName];
+                    
+                    // Converte para JSON
+                    const jsonData = XLSX.utils.sheet_to_json(worksheet, {raw: false, defval: ""});
+
+                    // Tenta extrair hiperlinks da Coluna A (Chamados)
+                    // O SheetJS não coloca o link automaticamente no JSON, precisamos pegar manualmente da célula
+                    jsonData.forEach((row, index) => {
+                        // O JSON começa na linha 2 do Excel (linha 1 é cabeçalho).
+                        // O índice 'index' do loop começa em 0.
+                        // index 0 -> Linha 2 do Excel.
+                        // A função encode_cell é baseada em 0 (Row 0 = Linha 1).
+                        // Logo, para pegar a linha de dados correspondente, usamos index + 1
+                        const cellAddress = XLSX.utils.encode_cell({r: index + 1, c: 0}); // c: 0 é Coluna A
+                        const cell = worksheet[cellAddress];
+                        
+                        // Se a célula tiver um link (.l.Target), salvamos num campo oculto
+                        if (cell && cell.l && cell.l.Target) {
+                            row._linkChamado = cell.l.Target;
+                        }
+                    });
+                    
+                    finalizeImport(jsonData);
+                };
+                reader.readAsArrayBuffer(file);
+            } 
+            // Lógica para CSV (Original)
+            else if (fileName.endsWith('.csv')) {
+                const reader = new FileReader();
+                reader.onload = (e) => processCSVData(e.target.result);
                 reader.readAsText(file);
-                event.target.value = '';
             }
+            
+            event.target.value = ''; // Reseta o input
         }
 
         function processPastedData() {
             const text = document.getElementById('paste-area').value;
-            if (text.trim()) { processData(text); document.getElementById('paste-area').value = ''; }
+            if (text.trim()) { 
+                processCSVData(text); 
+                document.getElementById('paste-area').value = ''; 
+            }
         }
 
-        function processData(rawData) {
+        // Processador de Texto CSV (Lógica Antiga Refatorada)
+        function processCSVData(rawData) {
             const lines = rawData.split(/\r?\n/).filter(l => l.trim() !== '');
             if (lines.length < 2) return;
             const separator = lines[0].includes('\t') ? '\t' : (lines[0].includes(';') ? ';' : ',');
             const headers = lines[0].split(separator).map(h => h.replace(/"/g, '').trim());
+            
             const data = lines.slice(1).map(line => {
                 const values = line.split(separator).map(v => v.replace(/"/g, '').trim());
-                let row = { 
+                let row = {};
+                headers.forEach((header, i) => { if(header) row[header] = values[i] || ""; });
+                return row;
+            });
+
+            finalizeImport(data);
+        }
+
+        // Finaliza a importação adicionando metadados e salvando
+        function finalizeImport(dataArray) {
+            if (!dataArray || dataArray.length === 0) {
+                showToast("Nenhum dado encontrado para importar.", "error");
+                return;
+            }
+
+            const processedData = dataArray.map(item => {
+                return {
+                    ...item, // Espalha as propriedades do Excel/CSV
                     _id: 'ID-' + Math.random().toString(36).substr(2, 9), 
                     _origin: currentTab,
                     _createdAt: new Date().toISOString()
                 };
-                headers.forEach((header, i) => { if(header) row[header] = values[i] || ""; });
-                return row;
             });
-            store[currentTab] = [...store[currentTab], ...data];
-            save(); render();
+
+            store[currentTab] = [...store[currentTab], ...processedData];
+            save(); 
+            render();
+            showToast(`${processedData.length} registos importados com sucesso!`, "success");
         }
+
+        // ==========================================
+        // FIM DA LÓGICA DE IMPORTAÇÃO
+        // ==========================================
 
         function updateFieldValue(id, field, value) {
             const item = store[currentTab].find(i => i._id === id);
@@ -323,7 +398,8 @@
             if (item) {
                 const cleanItem = {};
                 Object.keys(item).forEach(key => {
-                    if (!key.startsWith('_') || key === '_origin' || key === '_concluidoEm') {
+                    // Remove campos internos antes de enviar
+                    if ((!key.startsWith('_') || key === '_origin' || key === '_concluidoEm') && key !== '_linkChamado') {
                         cleanItem[key] = item[key];
                     }
                 });
@@ -357,11 +433,21 @@
 
                     let infoExtra = '';
                     Object.entries(item).forEach(([k, v]) => {
+                        // Filtra campos internos, seriais e vazios
                         if (!k.startsWith('_') && !camposSeriais.includes(k) && v) {
+                            let displayValue = v;
+                            
+                            // Se for a coluna "Chamados" e tivermos capturado o link do Excel
+                            if (k === 'Chamados' && item._linkChamado) {
+                                displayValue = `<a href="${item._linkChamado}" target="_blank" class="text-blue-600 underline decoration-2 hover:text-blue-800 flex items-center gap-1 transition-colors" title="Abrir link do chamado">
+                                    ${v} <i data-lucide="external-link" class="w-3 h-3"></i>
+                                </a>`;
+                            }
+
                             infoExtra += `
                             <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
                                 <span class="text-[9px] text-slate-400 font-black uppercase">${k}:</span>
-                                <span class="text-[10px] text-slate-700 font-bold">${v}</span>
+                                <span class="text-[10px] text-slate-700 font-bold leading-none">${displayValue}</span>
                             </div>`;
                         }
                     });
