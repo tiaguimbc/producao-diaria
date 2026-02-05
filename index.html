@@ -35,7 +35,6 @@
         }
         .card-concluir {
             transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            background-color: #ffffff;
         }
         .card-concluir.success {
             background-color: #d1fae5 !important;
@@ -210,7 +209,6 @@
         // LÓGICA DE ENVIO (FILA E CALLBACK)
         // ==========================================
 
-        // Esta função é chamada automaticamente pelo iframe quando o envio termina
         window.finalizeSubmit = function() {
             if (!isSubmitting) return;
 
@@ -259,7 +257,6 @@
             enviarParaGoogle(cleanItem);
         }
 
-        // Prepara o objeto removendo campos de controle interno
         function prepareItemForSend(item) {
             const cleanItem = {};
             Object.keys(item).forEach(key => {
@@ -292,7 +289,6 @@
             }, 1000);
         }
 
-        // Salvar um item individualmente
         function acaoSalvarPlanilha(id) {
             const item = store.concluidos.find(i => i._id === id);
             if (!item) return;
@@ -306,7 +302,6 @@
             processNextInQueue();
         }
 
-        // Salvar TODOS os itens
         function acaoSalvarTodos() {
             if (store.concluidos.length === 0) {
                 showToast("Não há itens para enviar!", "error");
@@ -376,7 +371,6 @@
 
             const fileName = file.name.toLowerCase();
 
-            // Lógica para EXCEL (.xlsx, .xls)
             if (fileName.endsWith('.xlsx') || fileName.endsWith('.xls')) {
                 const reader = new FileReader();
                 reader.onload = (e) => {
@@ -389,7 +383,7 @@
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {raw: false, defval: ""});
 
                     jsonData.forEach((row, index) => {
-                        const cellAddress = XLSX.utils.encode_cell({r: index + 1, c: 0}); // c: 0 é Coluna A
+                        const cellAddress = XLSX.utils.encode_cell({r: index + 1, c: 0}); 
                         const cell = worksheet[cellAddress];
                         if (cell && cell.l && cell.l.Target) {
                             row._linkChamado = cell.l.Target;
@@ -400,7 +394,6 @@
                 };
                 reader.readAsArrayBuffer(file);
             } 
-            // Lógica para CSV
             else if (fileName.endsWith('.csv')) {
                 const reader = new FileReader();
                 reader.onload = (e) => processCSVData(e.target.result);
@@ -454,10 +447,6 @@
             showToast(`${processedData.length} registos importados com sucesso!`, "success");
         }
 
-        // ==========================================
-        // FIM DA LÓGICA DE IMPORTAÇÃO
-        // ==========================================
-
         function updateFieldValue(id, field, value) {
             const item = store[currentTab].find(i => i._id === id);
             if (item) { item[field] = value; save(); }
@@ -490,61 +479,123 @@
                 data.forEach(item => {
                     const isConcluido = currentTab === 'concluidos';
                     const card = document.createElement('div');
-                    card.className = `card-concluir p-6 rounded-[2.5rem] border border-slate-200 shadow-sm card-animation ${isConcluido ? 'bg-emerald-50/40 border-emerald-100' : 'bg-white hover:border-blue-300'}`;
                     
+                    // Style: White card, rounded, shadow
+                    card.className = `card-concluir relative bg-white border border-slate-200 rounded-3xl shadow-sm hover:shadow-md transition-all duration-300 card-animation overflow-hidden group ${isConcluido ? 'border-emerald-100 bg-emerald-50/30' : ''}`;
+                    
+                    // --- SEPARAÇÃO DE DADOS ---
+                    
+                    // 1. Identificar Titulo Principal (Geralmente 'Chamados' ou o primeiro campo não-serial)
+                    let mainTitle = "Sem Título";
+                    let mainLink = null;
+                    
+                    // Verifica se existe "Chamados" ou "Chamado"
+                    if (item['Chamados']) {
+                        mainTitle = item['Chamados'];
+                        mainLink = item._linkChamado;
+                    } else if (item['Chamado']) {
+                        mainTitle = item['Chamado'];
+                        mainLink = item._linkChamado;
+                    } else {
+                        // Fallback: Tenta pegar o primeiro campo que não é serial nem interno
+                        const firstKey = Object.keys(item).find(k => !k.startsWith('_') && !camposSeriais.includes(k));
+                        if(firstKey) mainTitle = item[firstKey];
+                    }
+
+                    // 2. Preparar HTML dos Inputs (Seriais)
                     let inputsHtml = '';
                     camposSeriais.forEach(campo => {
+                        const hasValue = item[campo] && item[campo].toString().trim() !== '';
                         inputsHtml += `
-                        <div class="bg-slate-50 p-2 px-3 rounded-2xl border border-slate-100 focus-within:border-blue-400 focus-within:bg-white transition-all">
-                            <label class="block text-[8px] font-black text-slate-400 uppercase tracking-tighter mb-1">${campo}</label>
-                            <input type="text" value="${item[campo] || ''}" onchange="updateFieldValue('${item._id}', '${campo}', this.value)" class="w-full bg-transparent text-xs font-bold text-slate-800 outline-none">
+                        <div class="relative group/input">
+                            <label class="block text-[9px] font-bold text-slate-400 uppercase tracking-wider mb-1 pl-1">${campo}</label>
+                            <div class="relative flex items-center">
+                                <input type="text" 
+                                    value="${item[campo] || ''}" 
+                                    onchange="updateFieldValue('${item._id}', '${campo}', this.value)" 
+                                    class="w-full bg-slate-50 border border-slate-200 text-slate-700 text-xs font-bold rounded-xl px-3 py-2.5 outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500 transition-all ${hasValue ? 'bg-blue-50/30 border-blue-100 text-blue-800' : ''}"
+                                    placeholder="...">
+                                ${hasValue ? '<i data-lucide="check" class="absolute right-3 w-3 h-3 text-blue-500 pointer-events-none"></i>' : ''}
+                            </div>
                         </div>`;
                     });
 
-                    let infoExtra = '';
+                    // 3. Preparar HTML dos Detalhes (Info importada)
+                    let detailsHtml = '';
                     Object.entries(item).forEach(([k, v]) => {
-                        if (!k.startsWith('_') && !camposSeriais.includes(k) && v) {
-                            let displayValue = v;
-                            if (k === 'Chamados' && item._linkChamado) {
-                                displayValue = `<a href="${item._linkChamado}" target="_blank" class="text-blue-600 underline decoration-2 hover:text-blue-800 flex items-center gap-1 transition-colors" title="Abrir link do chamado">
-                                    ${v} <i data-lucide="external-link" class="w-3 h-3"></i>
-                                </a>`;
-                            }
-
-                            infoExtra += `
-                            <div class="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-full border border-slate-200">
-                                <span class="text-[9px] text-slate-400 font-black uppercase">${k}:</span>
-                                <span class="text-[10px] text-slate-700 font-bold leading-none">${displayValue}</span>
+                        if (!k.startsWith('_') && !camposSeriais.includes(k) && k !== 'Chamados' && k !== 'Chamado' && v) {
+                            detailsHtml += `
+                            <div class="flex flex-col border-l-2 border-slate-200 pl-3 py-0.5 hover:border-blue-400 transition-colors">
+                                <span class="text-[9px] text-slate-400 font-bold uppercase tracking-wider mb-0.5">${k}</span>
+                                <span class="text-[11px] text-slate-700 font-semibold line-clamp-2 leading-tight">${v}</span>
                             </div>`;
                         }
                     });
 
+                    // --- MONTAGEM DO CARD ---
+                    
                     card.innerHTML = `
-                        <div class="flex justify-between items-start mb-6">
-                            <div class="flex gap-3 items-center">
-                                <span class="bg-slate-900 text-white font-black px-4 py-1.5 rounded-full text-[9px] uppercase tracking-widest">${item._origin}</span>
-                                <div class="flex flex-col">
-                                    <span class="text-[10px] text-slate-400 font-black uppercase leading-none mb-1">Entrada</span>
-                                    <span class="text-[11px] text-slate-600 font-bold leading-none">${new Date(item._createdAt).toLocaleDateString()}</span>
+                        <!-- CABEÇALHO DO CARD -->
+                        <div class="px-6 py-4 border-b border-slate-100 flex flex-col md:flex-row md:items-center justify-between gap-4 bg-slate-50/50">
+                            <div class="flex items-center gap-4">
+                                <div class="w-10 h-10 rounded-2xl bg-blue-100 text-blue-600 flex items-center justify-center shadow-inner flex-shrink-0">
+                                    <i data-lucide="${isConcluido ? 'check-circle-2' : 'clipboard-list'}" class="w-5 h-5"></i>
+                                </div>
+                                <div class="overflow-hidden">
+                                    <h3 class="text-sm font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 truncate">
+                                        ${mainTitle}
+                                        ${mainLink ? `<a href="${mainLink}" target="_blank" class="text-blue-500 hover:text-blue-700 hover:bg-blue-50 p-1 rounded-md transition-colors" title="Abrir link"><i data-lucide="external-link" class="w-3 h-3"></i></a>` : ''}
+                                    </h3>
+                                    <div class="flex items-center gap-2 mt-1">
+                                        <span class="text-[9px] font-bold px-2 py-0.5 rounded bg-slate-200 text-slate-600 uppercase tracking-widest">${item._origin}</span>
+                                        <span class="text-[9px] font-medium text-slate-400 flex items-center gap-1"><i data-lucide="clock" class="w-3 h-3"></i> ${new Date(item._createdAt).toLocaleDateString()}</span>
+                                    </div>
                                 </div>
                             </div>
-                            <div class="flex items-center gap-3">
+                            
+                            <div class="flex items-center gap-2 flex-shrink-0">
                                 ${!isConcluido ? `
-                                    <button onclick="concluirChamado('${item._id}', event)" class="bg-emerald-500 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-emerald-600 flex items-center gap-2 transition-all shadow-lg shadow-emerald-100 active:scale-95 uppercase tracking-widest">
-                                        <i data-lucide="check" class="w-4 h-4"></i> CONCLUIR
-                                    </button>` : 
-                                    `
-                                    <button onclick="acaoSalvarPlanilha('${item._id}')" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-blue-700 flex items-center gap-2 transition-all shadow-lg shadow-blue-100 active:scale-95 uppercase tracking-widest">
-                                        <i data-lucide="upload-cloud" class="w-4 h-4"></i> ENVIAR
+                                    <button onclick="concluirChamado('${item._id}', event)" class="w-full md:w-auto bg-slate-900 hover:bg-emerald-600 text-white pl-4 pr-5 py-2.5 rounded-xl font-bold text-[10px] flex items-center justify-center gap-2 transition-all shadow-lg hover:shadow-emerald-200 active:scale-95 uppercase tracking-widest group/btn">
+                                        <span class="group-hover/btn:hidden flex items-center gap-2">Concluir <i data-lucide="arrow-right" class="w-3 h-3"></i></span>
+                                        <span class="hidden group-hover/btn:flex items-center gap-2">Confirmar <i data-lucide="check" class="w-4 h-4"></i></span>
+                                    </button>` 
+                                : `
+                                    <div class="text-right mr-2">
+                                        <div class="text-[9px] text-emerald-600 font-black uppercase tracking-widest mb-0.5">Concluído</div>
+                                        <div class="text-[9px] text-slate-400 font-medium">${item._concluidoEm || ''}</div>
+                                    </div>
+                                    <button onclick="acaoSalvarPlanilha('${item._id}')" class="bg-blue-600 text-white p-2.5 rounded-xl hover:bg-blue-700 transition-all shadow-lg shadow-blue-100 active:scale-95" title="Enviar Individualmente">
+                                        <i data-lucide="upload-cloud" class="w-4 h-4"></i>
                                     </button>
-                                    `}
+                                `}
                             </div>
                         </div>
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">${inputsHtml}</div>
-                        <div class="flex flex-wrap gap-2 border-t border-slate-100 pt-4">
-                            ${infoExtra}
-                            ${isConcluido ? `<div class="ml-auto flex items-center gap-2 text-[10px] text-emerald-600 font-black uppercase"><i data-lucide="calendar-check" class="w-3 h-3"></i> ${item._concluidoEm}</div>` : ''}
-                        </div>`;
+
+                        <!-- CORPO DO CARD -->
+                        <div class="p-6">
+                            <!-- Se houver detalhes importados (Cliente, Placa etc), mostra aqui -->
+                            ${detailsHtml ? `
+                                <div class="mb-6 bg-slate-50 border border-slate-200 rounded-2xl p-4">
+                                    <h4 class="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                        <i data-lucide="file-text" class="w-3 h-3"></i> Info do Chamado
+                                    </h4>
+                                    <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-y-4 gap-x-6">
+                                        ${detailsHtml}
+                                    </div>
+                                </div>
+                            ` : ''}
+
+                            <!-- Área de Inputs (Seriais) -->
+                            <div>
+                                <h4 class="text-[10px] font-black text-slate-300 uppercase tracking-widest mb-3 flex items-center gap-2">
+                                    <span class="w-1.5 h-1.5 rounded-full bg-blue-500"></span> Validação de Equipamentos
+                                </h4>
+                                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                                    ${inputsHtml}
+                                </div>
+                            </div>
+                        </div>
+                    `;
                     container.appendChild(card);
                 });
             }
