@@ -10,7 +10,7 @@
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
     <style>
         body {
-            /* Certifique-se que a imagem unnamed.jpg existe na mesma pasta ou use uma URL completa */
+            /* Imagem de fundo */
             background-image: linear-gradient(rgba(248, 250, 252, 0.7), rgba(248, 250, 252, 0.8)), url('unnamed.jpg');
             background-size: cover;
             background-position: center;
@@ -55,7 +55,7 @@
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(255,255,255,0.9);
+            background: rgba(255,255,255,0.95);
             z-index: 9999;
             align-items: center;
             justify-content: center;
@@ -69,7 +69,8 @@
     <!-- Overlay de Carregamento -->
     <div id="loading-overlay">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-r-4 border-transparent mb-4"></div>
-        <p class="font-black text-blue-800 uppercase tracking-widest text-lg animate-pulse text-center">A ENVIAR PARA A PLANILHA...<br><span class="text-xs text-slate-500 font-normal">Aguarde a confirmação do Google</span></p>
+        <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-lg animate-pulse text-center">A ENVIAR PARA A PLANILHA...</p>
+        <p id="loading-subtext" class="text-xs text-slate-500 font-normal mt-2">Aguarde a confirmação do Google</p>
     </div>
 
     <!-- Elementos ocultos para envio via iframe -->
@@ -157,11 +158,18 @@
             </aside>
 
             <section id="cards-grid" class="lg:col-span-2">
-                <div id="concluidos-tools" class="hidden mb-4 flex justify-between items-center solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500">
-                    <p class="text-[11px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-2">
-                        <i data-lucide="info" class="w-4 h-4 text-emerald-500"></i> 
-                        Os itens abaixo estão prontos para serem enviados à Planilha Google.
-                    </p>
+                
+                <!-- Barra de Ferramentas da aba Concluídos (Nova) -->
+                <div id="concluidos-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500 bg-white">
+                    <div class="flex flex-col md:flex-row justify-between items-center gap-4">
+                        <p class="text-[11px] font-black text-slate-600 uppercase tracking-widest flex items-center gap-2">
+                            <i data-lucide="info" class="w-4 h-4 text-emerald-500"></i> 
+                            Itens prontos para envio
+                        </p>
+                        <button onclick="acaoSalvarTodos()" class="w-full md:w-auto bg-violet-600 text-white px-6 py-2.5 rounded-xl font-black text-[10px] hover:bg-violet-700 flex items-center justify-center gap-2 transition-all shadow-lg shadow-violet-100 active:scale-95 uppercase tracking-widest">
+                            <i data-lucide="rocket" class="w-4 h-4"></i> ENVIAR TUDO PARA O GOOGLE
+                        </button>
+                    </div>
                 </div>
 
                 <div id="tiago" class="tab-content active"><div class="space-y-4" id="container-tiago"></div></div>
@@ -184,6 +192,11 @@
         
         let currentTab = 'tiago';
         let isSubmitting = false;
+        
+        // Variáveis para controle de fila de envio
+        let submissionQueue = []; 
+        let currentProcessingId = null;
+
         let store = JSON.parse(localStorage.getItem(DB_NAME)) || { 
             tiago: [], alana: [], william: [], concluidos: [] 
         };
@@ -193,27 +206,71 @@
             "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"
         ];
 
-        // FUNÇÃO GLOBALIZADA PARA EVITAR REFERENCE ERROR NO IFRAME
+        // ==========================================
+        // LÓGICA DE ENVIO (FILA E CALLBACK)
+        // ==========================================
+
+        // Esta função é chamada automaticamente pelo iframe quando o envio termina
         window.finalizeSubmit = function() {
-            if (isSubmitting) {
+            if (!isSubmitting) return;
+
+            // 1. Remove o item que acabou de ser enviado
+            if (currentProcessingId) {
+                const index = store.concluidos.findIndex(i => i._id === currentProcessingId);
+                if (index > -1) {
+                    store.concluidos.splice(index, 1);
+                    save();
+                    render();
+                }
+                currentProcessingId = null;
+            }
+
+            // 2. Verifica se há mais itens na fila
+            if (submissionQueue.length > 0) {
+                const remaining = submissionQueue.length;
+                document.getElementById('loading-text').innerText = `ENVIANDO... RESTAM ${remaining}`;
+                // Pequeno delay para não sobrecarregar
+                setTimeout(() => {
+                    processNextInQueue();
+                }, 500);
+            } else {
+                // 3. Tudo finalizado
                 isSubmitting = false;
                 setTimeout(() => {
                     const overlay = document.getElementById('loading-overlay');
                     if(overlay) overlay.style.display = 'none';
-                    showToast("DADOS SINCRONIZADOS COM SUCESSO!", "success");
-                }, 1000);
+                    showToast("DADOS SINCRONIZADOS E REMOVIDOS!", "success");
+                    
+                    // Reseta texto do overlay
+                    document.getElementById('loading-text').innerText = "A ENVIAR PARA A PLANILHA...";
+                }, 800);
             }
         };
 
-        function save() {
-            localStorage.setItem(DB_NAME, JSON.stringify(store));
-            updateStats();
+        function processNextInQueue() {
+            if (submissionQueue.length === 0) return;
+            
+            // Pega o próximo da fila
+            const item = submissionQueue.shift();
+            currentProcessingId = item._id;
+
+            // Prepara dados limpos
+            const cleanItem = prepareItemForSend(item);
+            enviarParaGoogle(cleanItem);
+        }
+
+        // Prepara o objeto removendo campos de controle interno
+        function prepareItemForSend(item) {
+            const cleanItem = {};
+            Object.keys(item).forEach(key => {
+                if ((!key.startsWith('_') || key === '_origin' || key === '_concluidoEm') && key !== '_linkChamado') {
+                    cleanItem[key] = item[key];
+                }
+            });
+            return cleanItem;
         }
 
         function enviarParaGoogle(item) {
-            isSubmitting = true;
-            document.getElementById('loading-overlay').style.display = 'flex';
-
             const form = document.createElement('form');
             form.method = 'POST';
             form.action = WEB_APP_URL;
@@ -233,6 +290,47 @@
             setTimeout(() => {
                 if(document.body.contains(form)) document.body.removeChild(form);
             }, 1000);
+        }
+
+        // Salvar um item individualmente
+        function acaoSalvarPlanilha(id) {
+            const item = store.concluidos.find(i => i._id === id);
+            if (!item) return;
+
+            isSubmitting = true;
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-text').innerText = "ENVIANDO REGISTO...";
+            
+            // Adiciona apenas este item à fila
+            submissionQueue = [item];
+            processNextInQueue();
+        }
+
+        // Salvar TODOS os itens
+        function acaoSalvarTodos() {
+            if (store.concluidos.length === 0) {
+                showToast("Não há itens para enviar!", "error");
+                return;
+            }
+
+            if(!confirm(`Confirma o envio de ${store.concluidos.length} registos para a planilha?`)) return;
+
+            isSubmitting = true;
+            document.getElementById('loading-overlay').style.display = 'flex';
+            document.getElementById('loading-text').innerText = `PREPARANDO ${store.concluidos.length} ITENS...`;
+
+            // Cria uma cópia da lista para a fila
+            submissionQueue = [...store.concluidos];
+            processNextInQueue();
+        }
+
+        // ==========================================
+        // FIM DA LÓGICA DE ENVIO
+        // ==========================================
+
+        function save() {
+            localStorage.setItem(DB_NAME, JSON.stringify(store));
+            updateStats();
         }
 
         function showToast(msg, type) {
@@ -285,25 +383,14 @@
                     const data = new Uint8Array(e.target.result);
                     const workbook = XLSX.read(data, {type: 'array'});
                     
-                    // Pega a primeira aba da planilha
                     const firstSheetName = workbook.SheetNames[0];
                     const worksheet = workbook.Sheets[firstSheetName];
                     
-                    // Converte para JSON
                     const jsonData = XLSX.utils.sheet_to_json(worksheet, {raw: false, defval: ""});
 
-                    // Tenta extrair hiperlinks da Coluna A (Chamados)
-                    // O SheetJS não coloca o link automaticamente no JSON, precisamos pegar manualmente da célula
                     jsonData.forEach((row, index) => {
-                        // O JSON começa na linha 2 do Excel (linha 1 é cabeçalho).
-                        // O índice 'index' do loop começa em 0.
-                        // index 0 -> Linha 2 do Excel.
-                        // A função encode_cell é baseada em 0 (Row 0 = Linha 1).
-                        // Logo, para pegar a linha de dados correspondente, usamos index + 1
                         const cellAddress = XLSX.utils.encode_cell({r: index + 1, c: 0}); // c: 0 é Coluna A
                         const cell = worksheet[cellAddress];
-                        
-                        // Se a célula tiver um link (.l.Target), salvamos num campo oculto
                         if (cell && cell.l && cell.l.Target) {
                             row._linkChamado = cell.l.Target;
                         }
@@ -313,14 +400,13 @@
                 };
                 reader.readAsArrayBuffer(file);
             } 
-            // Lógica para CSV (Original)
+            // Lógica para CSV
             else if (fileName.endsWith('.csv')) {
                 const reader = new FileReader();
                 reader.onload = (e) => processCSVData(e.target.result);
                 reader.readAsText(file);
             }
-            
-            event.target.value = ''; // Reseta o input
+            event.target.value = ''; 
         }
 
         function processPastedData() {
@@ -331,7 +417,6 @@
             }
         }
 
-        // Processador de Texto CSV (Lógica Antiga Refatorada)
         function processCSVData(rawData) {
             const lines = rawData.split(/\r?\n/).filter(l => l.trim() !== '');
             if (lines.length < 2) return;
@@ -348,7 +433,6 @@
             finalizeImport(data);
         }
 
-        // Finaliza a importação adicionando metadados e salvando
         function finalizeImport(dataArray) {
             if (!dataArray || dataArray.length === 0) {
                 showToast("Nenhum dado encontrado para importar.", "error");
@@ -357,7 +441,7 @@
 
             const processedData = dataArray.map(item => {
                 return {
-                    ...item, // Espalha as propriedades do Excel/CSV
+                    ...item, 
                     _id: 'ID-' + Math.random().toString(36).substr(2, 9), 
                     _origin: currentTab,
                     _createdAt: new Date().toISOString()
@@ -393,20 +477,6 @@
             }, 400);
         }
 
-        function acaoSalvarPlanilha(id) {
-            const item = store.concluidos.find(i => i._id === id);
-            if (item) {
-                const cleanItem = {};
-                Object.keys(item).forEach(key => {
-                    // Remove campos internos antes de enviar
-                    if ((!key.startsWith('_') || key === '_origin' || key === '_concluidoEm') && key !== '_linkChamado') {
-                        cleanItem[key] = item[key];
-                    }
-                });
-                enviarParaGoogle(cleanItem);
-            }
-        }
-
         function render() {
             const container = document.getElementById('container-' + currentTab);
             const emptyState = document.getElementById('empty-state');
@@ -433,11 +503,8 @@
 
                     let infoExtra = '';
                     Object.entries(item).forEach(([k, v]) => {
-                        // Filtra campos internos, seriais e vazios
                         if (!k.startsWith('_') && !camposSeriais.includes(k) && v) {
                             let displayValue = v;
-                            
-                            // Se for a coluna "Chamados" e tivermos capturado o link do Excel
                             if (k === 'Chamados' && item._linkChamado) {
                                 displayValue = `<a href="${item._linkChamado}" target="_blank" class="text-blue-600 underline decoration-2 hover:text-blue-800 flex items-center gap-1 transition-colors" title="Abrir link do chamado">
                                     ${v} <i data-lucide="external-link" class="w-3 h-3"></i>
@@ -468,7 +535,7 @@
                                     </button>` : 
                                     `
                                     <button onclick="acaoSalvarPlanilha('${item._id}')" class="bg-blue-600 text-white px-6 py-3 rounded-2xl font-black text-[10px] hover:bg-blue-700 flex items-center gap-2 transition-all shadow-lg shadow-blue-100 active:scale-95 uppercase tracking-widest">
-                                        <i data-lucide="upload-cloud" class="w-4 h-4"></i> SALVAR NA PLANILHA
+                                        <i data-lucide="upload-cloud" class="w-4 h-4"></i> ENVIAR
                                     </button>
                                     `}
                             </div>
