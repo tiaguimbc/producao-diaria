@@ -132,7 +132,6 @@
         let isBatchSubmit = false;
 
         const camposSeriais = ["Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"];
-
         function save() { localStorage.setItem(DB_NAME, JSON.stringify(store)); updateStats(); }
 
         function handleFileUpload(event) {
@@ -141,7 +140,6 @@
             
             const isCSV = file.name.toLowerCase().endsWith('.csv');
             const reader = new FileReader();
-            
             reader.onload = (e) => {
                 try {
                     let workbook;
@@ -156,7 +154,6 @@
                     alert("Erro ao ler arquivo. Verifique se o formato é válido.");
                 }
             };
-
             if (isCSV) {
                 reader.readAsText(file, 'UTF-8');
             } else {
@@ -179,12 +176,12 @@
             if (rows.length < 1) return;
             const rawHeaders = rows[0].map(h => (h || "").toString().trim());
             const dataRows = rows.slice(1);
-
             const processed = dataRows.map(rowArray => {
                 let item = {};
                 rawHeaders.forEach((h, idx) => {
                     let val = (rowArray[idx] || "").toString().trim();
                     if (!val) return;
+          
                     let cleanKey = h.replace(/Campo personalizado \((.*?)\)/g, '$1').replace('Campo personalizado ', '');
                     if (item[cleanKey]) item[cleanKey] += " + " + val;
                     else item[cleanKey] = val;
@@ -193,7 +190,10 @@
                 let titleField = item["Chave da ocorrência"] ? "Chave da ocorrência" : (item["Chamados"] ? "Chamados" : rawHeaders[0]);
                 let link = null;
                 const linkSearch = JSON.stringify(item);
-                const match = linkSearch.match(/CONFIGURAR-\d+/i);
+                
+                // --- ALTERAÇÃO APLICADA AQUI ---
+                const match = linkSearch.match(/(CONFIGURAR|PROCONFIG)-\d+/i);
+                
                 if (match) link = JIRA_BASE_URL + match[0].toUpperCase();
 
                 return { ...item, _id: 'ID-'+Math.random().toString(36).substr(2,9), _origin: currentTab, _link: link, _titleField: titleField };
@@ -208,7 +208,6 @@
             const data = store[currentTab];
             container.innerHTML = '';
             document.getElementById('empty-state').style.display = data.length > 0 ? 'none' : 'flex';
-
             data.forEach(item => {
                 const isConcluido = currentTab === 'concluidos';
                 const card = document.createElement('div');
@@ -226,7 +225,6 @@
                         details += `<div class="border-l-2 border-slate-100 pl-2"><p class="text-[7px] text-slate-400 font-bold uppercase">${k}</p><p class="text-[9px] font-semibold text-slate-700">${v}</p></div>`;
                     }
                 });
-
                 card.innerHTML = `
                     <div class="px-4 py-3 bg-slate-50 border-b flex justify-between items-center">
                         <div class="flex items-center gap-2">
@@ -278,7 +276,6 @@
             form.method = 'POST';
             form.action = WEB_APP_URL;
             form.target = 'hidden_iframe';
-            
             Object.entries(item).forEach(([k, v]) => {
                 if (!k.startsWith('_') || k === '_origin') {
                     const inp = document.createElement('input');
@@ -308,25 +305,23 @@
         // --- CORREÇÃO DA PERGUNTA PARA EXCLUIR APÓS GERAR EXCEL ---
         function exportarEtiquetas() {
             if(store.etiquetas.length === 0) return;
-            
             const data = store.etiquetas.map(i => ({
                 "Serial Rastreador": i["Serial Rastreador"] || "",
                 "ICCID": i["Iccid"] || "",
                 "Cliente": i["Branch via argos"] || i["Branch Via Argo"] || "",
                 "Serviço": i["Tipo de serviço"] || "",
                 "Placa": i["Placas"] || "",
-		"Tipo de firmware": i["Tipo de firmware"] || "",
+		        "Tipo de firmware": i["Tipo de firmware"] || "",
                 "Data": i._concluidoEm || "",
                 "Materiais": i["Material para manutenção"] || ""
             }));
-            
             const ws = XLSX.utils.json_to_sheet(data);
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Etiquetas");
             
             // Força o Download
             XLSX.writeFile(wb, "Etiquetas_PCP.xlsx");
-
+            
             // Exibe a mensagem logo após iniciar o download
             setTimeout(() => {
                 if(confirm("Planilha baixada! Deseja limpar os registros da aba de Etiquetas?")) {
@@ -334,7 +329,8 @@
                     save();
                     render();
                 }
-            }, 500); // 500ms de delay para garantir que o download inicie antes do popup aparecer
+            }, 500);
+            // 500ms de delay para garantir que o download inicie antes do popup aparecer
         }
 
         function updateVal(id,f,v) { const i = store[currentTab].find(x=>x._id===id); if(i){i[f]=v;save();}}
@@ -346,7 +342,7 @@
         }
         function clearCurrentTab() { if(confirm("Limpar dados desta aba?")) { store[currentTab]=[]; save(); render(); } }
         function switchTab(id) { 
-            currentTab = id; 
+            currentTab = id;
             document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.id === 'btn-'+id));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === id));
             document.getElementById('current-name').innerText = id.charAt(0).toUpperCase() + id.slice(1);
