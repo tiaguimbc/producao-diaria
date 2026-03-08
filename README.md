@@ -1,33 +1,26 @@
-# 📊 Sistema de Gestão de Produção Diária (PCP)
+# 📊 Produção Diária - PCP
 
-Este projeto é uma ferramenta de suporte à decisão e controle operacional desenvolvida para otimizar o fluxo de trabalho em ambientes de produção e logística. A aplicação centraliza o rastreamento de equipamentos e a gestão de tickets em uma interface única e intuitiva.
+Uma solução de Planeamento e Controlo de Produção (PCP) desenvolvida para digitalizar o fluxo de trabalho industrial e logístico. O sistema permite o rastreio de equipamentos, gestão de tickets e sincronização automática com bases de dados na nuvem.
 
----
+## 🚀 Funcionalidades Principais
+* **Ingestão Versátil de Dados:** Suporte para importação via ficheiros Excel (.xlsx), CSV e entrada direta por texto formatado.
+* **Rastreabilidade de Ativos:** Campos otimizados para captura de Seriais de Rastreadores, ICCIDs e controlo de periféricos (Teclados, Câmeras, Smart Speakers).
+* **Gestão Individualizada:** Divisão de fluxo de trabalho por abas de colaboradores, permitindo uma gestão clara da produtividade por equipa.
+* **Automação de Etiquetas:** Geração de ficheiros formatados prontos para a criação de etiquetas de identificação.
+* **Persistência Robusta:** Utilização de `LocalStorage` para funcionamento "Offline-First", garantindo a segurança dos dados locais.
 
-### 📋 Visão Geral do Sistema
-O sistema foi projetado para resolver a fragmentação de dados de produção, permitindo que as informações de hardware e chamados sejam processadas e sincronizadas de forma estruturada.
+## 🛠️ Tecnologias Utilizadas
+* **Frontend:** HTML5 & Tailwind CSS (Interface moderna e responsiva).
+* **Core:** JavaScript (ES6+) para manipulação de lógica de negócio.
+* **Integração:** SheetJS (XLSX.js) para processamento de planilhas.
+* **Backend:** Google Apps Script (Web App) para persistência de dados em nuvem via Google Sheets.
 
-* **Gestão de Equipe Dinâmica**: Organização de fluxos de trabalho divididos por colaboradores (Tiago, Alana e William), facilitando o acompanhamento de metas individuais.
-* **Rastreamento de Hardware**: Campos específicos para controle de Seriais de Rastreadores, ICCIDs, Periféricos e Câmeras.
-* **Persistência Local (Offline-First)**: Utilização de `localStorage` para garantir que nenhum dado seja perdido durante a operação, mesmo sem conexão constante.
+## 🧩 Diferenciais Técnicos
+* **Links Inteligentes para JIRA:** O sistema utiliza expressões regulares (Regex) para identificar chaves de chamados e gerar links de acesso rápido automaticamente.
+* **Fila de Submissão Segura:** Implementação de lógica de fila (`submissionQueue`) para assegurar que múltiplos envios sejam processados sequencialmente sem perda de pacotes.
+* **Visualização de Status:** Dashboard integrado com contagem em tempo real de itens totais e concluídos por sessão.
 
----
-
-### 🛠️ Diferenciais Técnicos
-* **Ingestão Versátil de Dados**: Suporte para importação via arquivos Excel (.xlsx), CSV ou colagem direta de texto, utilizando a biblioteca **SheetJS**.
-* **Integração com Ecossistema JIRA**: Identificação automática de chaves de chamados via Expressões Regulares (Regex) e geração de links diretos para a plataforma.
-* **Sincronização com Cloud**: Arquitetura que utiliza **Google Apps Script** para persistir dados concluídos em uma planilha mestra do Google Sheets.
-* **Fila de Submissão Segura**: Implementação de lógica de fila (`submissionQueue`) para garantir a integridade dos dados durante envios em massa.
-
----
-
-### 🚀 Impacto Operacional
-* **Automação de Etiquetas**: Funcionalidade integrada para exportação de dados formatados prontos para geração de etiquetas de expedição.
-* **Monitoramento em Tempo Real**: Painel de estatísticas que exibe o total de chamados pendentes e concluídos na sessão atual.
-
----
-
-### 💻 Stack Tecnológica
-* **Frontend**: HTML5, Tailwind CSS, Lucide Icons.
-* **Processamento**: JavaScript (ES6+), SheetJS.
-* **Backend/Cloud**: Google Apps Script, LocalStorage API.
+## 📋 Como utilizar
+1. Clone o repositório.
+2. Certifique-se de que a imagem de fundo `unnamed.jpg` está na raiz do projeto.
+3. Abra o `index.html` e utilize o botão "Config" para importar a sua base de dados inicial.
