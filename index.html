@@ -13,7 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 
     <style>
         body {
@@ -126,9 +126,8 @@
                         <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Feitos</p><p class="text-xl font-black text-emerald-400" id="stat-done">0</p></div>
                         
                         <div class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 relative">
-                            <div id="conexao-status" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm" title="Desconectado"></div>
                             <p class="text-[8px] opacity-70 uppercase text-violet-300">Nuvem</p>
-                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">-</p>
+                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">0</p>
                         </div>
                     </div>
                     <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
@@ -161,36 +160,25 @@
 
     <script>
         // ==========================================
-        // 1. INICIALIZAÇÃO DO FIREBASE (SDK NORMAL)
+        // 1. INICIALIZAÇÃO DO CLOUD FIRESTORE
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCpDi18ridgdvc1GK6VLHlvJ1UDRbZGyl0",
             authDomain: "pcp-projeto-4aa40.firebaseapp.com",
-            databaseURL: "https://pcp-projeto-4aa40-default-rtdb.firebaseio.com",
             projectId: "pcp-projeto-4aa40",
             storageBucket: "pcp-projeto-4aa40.firebasestorage.app",
             messagingSenderId: "850834146931",
             appId: "1:850834146931:web:1524870b589fafaaef4c06"
         };
         firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
+        const db = firebase.firestore();
 
-        // NOVO: Monitora se o Firebase conseguiu se conectar na internet/servidor
-        db.ref('.info/connected').on('value', function(snap) {
-            const statusDot = document.getElementById('conexao-status');
-            if (snap.val() === true) {
-                statusDot.classList.replace('bg-red-500', 'bg-emerald-500');
-                statusDot.title = "Conectado à Nuvem!";
-            } else {
-                statusDot.classList.replace('bg-emerald-500', 'bg-red-500');
-                statusDot.title = "Tentando conectar...";
-            }
-        });
-
-        // Escuta os bolsões
-        db.ref('estoque_bolsoes').on('value', snapshot => {
-            const count = snapshot.numChildren();
-            document.getElementById('stat-nuvem').innerText = count;
+        // Escuta o estoque na nuvem ao vivo (Firestore listener)
+        db.collection('estoque_bolsoes').onSnapshot((snapshot) => {
+            document.getElementById('stat-nuvem').innerText = snapshot.size;
+        }, (error) => {
+            console.error("Erro ao conectar no Firestore:", error);
+            document.getElementById('stat-nuvem').innerText = "!";
         });
 
         // ==========================================
@@ -224,25 +212,18 @@
         function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         // ==========================================
-        // 3. LÓGICA DO BOLSÃO E FIREBASE
+        // 3. LÓGICA DO BOLSÃO NO FIRESTORE
         // ==========================================
         
-        // Limpeza EXTREMA dos dados para o Firebase nunca engasgar
-        function sanitizeForFirebase(obj) {
+        function sanitizeForFirestore(obj) {
             if (!obj || typeof obj !== 'object') return obj;
-            const safeObj = {};
+            const newObj = {};
             for (let key in obj) {
-                // Remove qualquer coisa vazia, nula ou invisível
-                if (obj[key] === undefined || obj[key] === null || obj[key] === "") continue;
-                
-                // Formata a chave para não ter nenhum símbolo proibido do Firebase
-                let safeKey = String(key).replace(/[.#$\[\]\n\r]/g, '-').trim();
-                if (safeKey === "") continue;
-                
-                // Transforma tudo em texto simples
-                safeObj[safeKey] = String(obj[key]);
+                // Remove undefined, Firestore não aceita
+                if (obj[key] === undefined) continue;
+                newObj[key] = String(obj[key]); // Salva tudo como string para garantir
             }
-            return safeObj; 
+            return newObj; 
         }
 
         function salvarBolsao(id) {
@@ -252,31 +233,24 @@
             let nomeBolsao = prompt("Confirme ou digite o CÓDIGO DO BOLSÃO físico (Ex: BOLSAO-001):", item[item._titleField] || "");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
             
-            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]/ ]/g, '-');
+            // Tratamento do nome (ID do documento no Firestore)
+            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
-            showLoading("Salvando no Firebase...");
-            const dadosSeguros = sanitizeForFirebase(item);
+            showLoading("Salvando no Firestore...");
+            const dadosSeguros = sanitizeForFirestore(item);
             
-            // Trava de segurança para não prender a tela
-            let emergencyTimeout = setTimeout(() => {
+            // Salva na coleção 'estoque_bolsoes', com o ID igual ao nome
+            db.collection("estoque_bolsoes").doc(nomeBolsao).set(dadosSeguros)
+            .then(() => {
+                const idx = store.bolsoes.findIndex(x => x._id === id);
+                store.bolsoes.splice(idx, 1);
+                save(); 
+                render(); 
                 hideLoading();
-                alert("O sistema está demorando muito para salvar. Verifique se a bolinha do Firebase está VERDE. Se estiver vermelha, ele não está conectado.");
-            }, 8000);
-
-            // A função .set com callback é a forma mais blindada de salvar
-            db.ref('estoque_bolsoes/' + nomeBolsao).set(dadosSeguros, (error) => {
-                clearTimeout(emergencyTimeout); // Cancela o timer se salvar rápido
-                if (error) {
-                    hideLoading(); 
-                    alert("Erro retornado pelo Firebase: " + error.message);
-                } else {
-                    // Deu tudo certo!
-                    const idx = store.bolsoes.findIndex(x => x._id === id);
-                    if(idx > -1) store.bolsoes.splice(idx, 1);
-                    save(); 
-                    render(); 
-                    hideLoading();
-                }
+            })
+            .catch((error) => {
+                hideLoading();
+                alert("Erro ao salvar no banco. Verifique as Regras do Firestore.\nDetalhe: " + error.message);
             });
         }
 
@@ -284,44 +258,40 @@
             let nomeBolsao = prompt("Bipe ou digite o CÓDIGO DO BOLSÃO físico que você tem em mãos:");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
             
-            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]/ ]/g, '-');
+            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
-            showLoading("Buscando na Nuvem...");
+            showLoading("Buscando no Firestore...");
 
-            let emergencyTimeout = setTimeout(() => {
-                hideLoading();
-                alert("O sistema está demorando muito. Verifique se a bolinha do Firebase está VERDE.");
-            }, 8000);
-
-            db.ref('estoque_bolsoes/' + nomeBolsao).once('value')
-                .then(snapshot => {
-                    clearTimeout(emergencyTimeout);
-                    if (snapshot.exists()) {
-                        const dadosBolsao = snapshot.val();
-                        const card = store[currentTab].find(x => x._id === cardId);
+            const docRef = db.collection("estoque_bolsoes").doc(nomeBolsao);
+            
+            docRef.get().then((doc) => {
+                if (doc.exists) {
+                    const dadosBolsao = doc.data();
+                    const card = store[currentTab].find(x => x._id === cardId);
+                    
+                    if (card) {
+                        // Preenche os campos do card
+                        camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
+                        save();
                         
-                        if (card) {
-                            camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
-                            save();
-                            
-                            db.ref('estoque_bolsoes/' + nomeBolsao).remove().then(() => {
-                                render(); hideLoading();
-                            });
-                        }
-                    } else {
-                        hideLoading();
-                        alert("Atenção: Bolsão '" + nomeBolsao + "' não encontrado no estoque da nuvem.");
+                        // Exclui o bolsão do estoque
+                        docRef.delete().then(() => {
+                            render(); 
+                            hideLoading();
+                        });
                     }
-                })
-                .catch(error => {
-                    clearTimeout(emergencyTimeout);
-                    hideLoading(); 
-                    alert("Erro ao buscar no Firebase: " + error.message);
-                });
+                } else {
+                    hideLoading();
+                    alert("Atenção: Bolsão '" + nomeBolsao + "' não encontrado no estoque da nuvem.");
+                }
+            }).catch((error) => {
+                hideLoading();
+                alert("Erro ao buscar no banco: " + error.message);
+            });
         }
 
         // ==========================================
-        // 4. RESTANTE DAS FUNÇÕES ORIGINAIS
+        // 4. RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
         // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
