@@ -36,17 +36,18 @@
         .card-animation { animation: fadeInScale 0.3s ease-out forwards; }
         @keyframes fadeInScale { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .solid-panel { background-color: #ffffff; border: 1px solid #e2e8f0; }
-        #loading-overlay {
+        
+        #loading-overlay, #cloud-modal-overlay {
             display: none;
             position: fixed;
             inset: 0;
-            background: rgba(255,255,255,0.95);
             z-index: 9999;
             align-items: center;
             justify-content: center;
-            flex-direction: column;
             backdrop-filter: blur(4px);
         }
+        #loading-overlay { background: rgba(255,255,255,0.95); flex-direction: column; }
+        #cloud-modal-overlay { background: rgba(15, 23, 42, 0.6); padding: 1rem; }
     </style>
 </head>
 <body class="text-slate-900 pb-10">
@@ -54,6 +55,21 @@
     <div id="loading-overlay">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-r-4 border-transparent mb-4"></div>
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
+    </div>
+
+    <div id="cloud-modal-overlay">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
+            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                    <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> Estoque na Nuvem
+                </h3>
+                <button onclick="fecharEstoqueNuvem()" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white">
+                </div>
+        </div>
     </div>
 
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof finalizeSubmit === 'function') finalizeSubmit()"></iframe>
@@ -125,9 +141,9 @@
                         <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Pendentes</p><p class="text-xl font-black" id="stat-total">0</p></div>
                         <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Feitos</p><p class="text-xl font-black text-emerald-400" id="stat-done">0</p></div>
                         
-                        <div class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 relative">
-                            <p class="text-[8px] opacity-70 uppercase text-violet-300">Nuvem</p>
-                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">0</p>
+                        <div onclick="abrirEstoqueNuvem()" class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 cursor-pointer hover:bg-violet-800/60 transition-colors shadow-lg shadow-violet-900/20 group" title="Clique para ver a lista de bolsões">
+                            <p class="text-[8px] opacity-70 uppercase text-violet-300 flex items-center justify-center gap-1">Nuvem <i data-lucide="external-link" class="w-2 h-2 opacity-50 group-hover:opacity-100 transition-opacity"></i></p>
+                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">-</p>
                         </div>
                     </div>
                     <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
@@ -173,16 +189,87 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Escuta o estoque na nuvem ao vivo (Firestore listener)
+        // Escuta o estoque na nuvem ao vivo
         db.collection('estoque_bolsoes').onSnapshot((snapshot) => {
             document.getElementById('stat-nuvem').innerText = snapshot.size;
         }, (error) => {
-            console.error("Erro ao conectar no Firestore:", error);
             document.getElementById('stat-nuvem').innerText = "!";
         });
 
         // ==========================================
-        // 2. VARIÁVEIS GERAIS
+        // 2. FUNÇÕES DO MODAL (ESTOQUE NA NUVEM)
+        // ==========================================
+        function abrirEstoqueNuvem() {
+            const modal = document.getElementById('cloud-modal-overlay');
+            const lista = document.getElementById('cloud-modal-list');
+            modal.style.display = 'flex';
+            lista.innerHTML = '<div class="text-center text-violet-500 py-10 font-bold text-xs animate-pulse">Carregando Estoque...</div>';
+
+            db.collection('estoque_bolsoes').get().then((querySnapshot) => {
+                lista.innerHTML = '';
+                
+                if (querySnapshot.empty) {
+                    lista.innerHTML = `
+                        <div class="text-center text-slate-400 py-10 flex flex-col items-center">
+                            <i data-lucide="package-x" class="w-10 h-10 mb-2 opacity-50"></i>
+                            <p class="font-bold text-xs uppercase tracking-wider">Estoque Vazio</p>
+                        </div>
+                    `;
+                    lucide.createIcons();
+                    return;
+                }
+
+                querySnapshot.forEach((doc) => {
+                    const dados = doc.data();
+                    const serialPrev = dados['Serial Rastreador'] || 'Sem Serial Registrado';
+                    
+                    lista.innerHTML += `
+                        <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group">
+                            <div>
+                                <p class="font-black text-slate-800 text-[13px] tracking-tight flex items-center gap-1">
+                                    <i data-lucide="package" class="w-3.5 h-3.5 text-violet-500"></i> ${doc.id}
+                                </p>
+                                <p class="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Rastreador: <span class="text-slate-600">${serialPrev}</span></p>
+                            </div>
+                            <div class="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="copiarIDBolsao('${doc.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-colors shadow-sm" title="Copiar Nome do Bolsão">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                                </button>
+                                <button onclick="excluirBolsaoNuvem('${doc.id}')" class="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white p-2 rounded-lg transition-colors shadow-sm" title="Excluir Permanentemente">
+                                    <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                });
+                lucide.createIcons();
+            }).catch((error) => {
+                lista.innerHTML = `<div class="text-center text-red-500 py-10 font-bold text-xs">Erro de conexão: ${error.message}</div>`;
+            });
+        }
+
+        function fecharEstoqueNuvem() {
+            document.getElementById('cloud-modal-overlay').style.display = 'none';
+        }
+
+        function copiarIDBolsao(id) {
+            navigator.clipboard.writeText(id).then(() => {
+                alert(`✅ Código '${id}' copiado! Você pode colar ele na caixa de Puxar Bolsão.`);
+            });
+        }
+
+        function excluirBolsaoNuvem(id) {
+            if (confirm(`Atenção: Tem certeza que deseja DELETAR o bolsão '${id}' da Nuvem?\n\nOs seriais dentro dele serão apagados permanentemente.`)) {
+                db.collection("estoque_bolsoes").doc(id).delete().then(() => {
+                    abrirEstoqueNuvem(); // Atualiza a lista na hora
+                }).catch((error) => {
+                    alert("Erro ao excluir: " + error.message);
+                });
+            }
+        }
+
+        // ==========================================
+        // 3. VARIÁVEIS GERAIS
         // ==========================================
         const WEB_APP_URL = "https://script.google.com/a/macros/queonetics.com/s/AKfycby2ftCCf4SipPtZPnMuzzFFBcLoB54OXp4ssOk7hLS0w8aRK-b9C_CmVaR8lJihVgPg/exec";
         const DB_NAME = 'producao_pcp_v5_store';
@@ -212,16 +299,14 @@
         function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         // ==========================================
-        // 3. LÓGICA DO BOLSÃO NO FIRESTORE
+        // 4. LÓGICA DO BOLSÃO NO FIRESTORE
         // ==========================================
-        
         function sanitizeForFirestore(obj) {
             if (!obj || typeof obj !== 'object') return obj;
             const newObj = {};
             for (let key in obj) {
-                // Remove undefined, Firestore não aceita
                 if (obj[key] === undefined) continue;
-                newObj[key] = String(obj[key]); // Salva tudo como string para garantir
+                newObj[key] = String(obj[key]); 
             }
             return newObj; 
         }
@@ -233,13 +318,11 @@
             let nomeBolsao = prompt("Confirme ou digite o CÓDIGO DO BOLSÃO físico (Ex: BOLSAO-001):", item[item._titleField] || "");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
             
-            // Tratamento do nome (ID do documento no Firestore)
             nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
             showLoading("Salvando no Firestore...");
             const dadosSeguros = sanitizeForFirestore(item);
             
-            // Salva na coleção 'estoque_bolsoes', com o ID igual ao nome
             db.collection("estoque_bolsoes").doc(nomeBolsao).set(dadosSeguros)
             .then(() => {
                 const idx = store.bolsoes.findIndex(x => x._id === id);
@@ -250,7 +333,7 @@
             })
             .catch((error) => {
                 hideLoading();
-                alert("Erro ao salvar no banco. Verifique as Regras do Firestore.\nDetalhe: " + error.message);
+                alert("Erro ao salvar no banco: " + error.message);
             });
         }
 
@@ -270,11 +353,9 @@
                     const card = store[currentTab].find(x => x._id === cardId);
                     
                     if (card) {
-                        // Preenche os campos do card
                         camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
                         save();
                         
-                        // Exclui o bolsão do estoque
                         docRef.delete().then(() => {
                             render(); 
                             hideLoading();
@@ -291,7 +372,7 @@
         }
 
         // ==========================================
-        // 4. RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
+        // 5. RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
         // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
