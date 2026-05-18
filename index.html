@@ -124,7 +124,12 @@
                     <div class="grid grid-cols-3 gap-2 mb-4 text-center">
                         <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Pendentes</p><p class="text-xl font-black" id="stat-total">0</p></div>
                         <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Feitos</p><p class="text-xl font-black text-emerald-400" id="stat-done">0</p></div>
-                        <div class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30"><p class="text-[8px] opacity-70 uppercase text-violet-300">Nuvem</p><p class="text-xl font-black text-violet-400" id="stat-nuvem">0</p></div>
+                        
+                        <div class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 relative">
+                            <div id="conexao-status" class="absolute top-2 right-2 w-2.5 h-2.5 rounded-full bg-red-500 shadow-sm" title="Desconectado"></div>
+                            <p class="text-[8px] opacity-70 uppercase text-violet-300">Nuvem</p>
+                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">-</p>
+                        </div>
                     </div>
                     <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
                 </div>
@@ -170,7 +175,19 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.database();
 
-        // Escuta as mudanças no Firebase em tempo real (Normal)
+        // NOVO: Monitora se o Firebase conseguiu se conectar na internet/servidor
+        db.ref('.info/connected').on('value', function(snap) {
+            const statusDot = document.getElementById('conexao-status');
+            if (snap.val() === true) {
+                statusDot.classList.replace('bg-red-500', 'bg-emerald-500');
+                statusDot.title = "Conectado à Nuvem!";
+            } else {
+                statusDot.classList.replace('bg-emerald-500', 'bg-red-500');
+                statusDot.title = "Tentando conectar...";
+            }
+        });
+
+        // Escuta os bolsões
         db.ref('estoque_bolsoes').on('value', snapshot => {
             const count = snapshot.numChildren();
             document.getElementById('stat-nuvem').innerText = count;
@@ -209,17 +226,23 @@
         // ==========================================
         // 3. LÓGICA DO BOLSÃO E FIREBASE
         // ==========================================
+        
+        // Limpeza EXTREMA dos dados para o Firebase nunca engasgar
         function sanitizeForFirebase(obj) {
-            // O Firebase não aceita chaves com '.', '#', '$', '[', ou ']'
-            // E dá erro fatal se tentarmos salvar algo "undefined"
             if (!obj || typeof obj !== 'object') return obj;
-            const newObj = {};
+            const safeObj = {};
             for (let key in obj) {
-                if (obj[key] === undefined) continue;
-                let safeKey = key.replace(/[.#$\[\]]/g, '-');
-                newObj[safeKey] = obj[key];
+                // Remove qualquer coisa vazia, nula ou invisível
+                if (obj[key] === undefined || obj[key] === null || obj[key] === "") continue;
+                
+                // Formata a chave para não ter nenhum símbolo proibido do Firebase
+                let safeKey = String(key).replace(/[.#$\[\]\n\r]/g, '-').trim();
+                if (safeKey === "") continue;
+                
+                // Transforma tudo em texto simples
+                safeObj[safeKey] = String(obj[key]);
             }
-            return JSON.parse(JSON.stringify(newObj)); 
+            return safeObj; 
         }
 
         function salvarBolsao(id) {
@@ -229,35 +252,50 @@
             let nomeBolsao = prompt("Confirme ou digite o CÓDIGO DO BOLSÃO físico (Ex: BOLSAO-001):", item[item._titleField] || "");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
             
-            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]]/g, '-');
+            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]/ ]/g, '-');
 
             showLoading("Salvando no Firebase...");
             const dadosSeguros = sanitizeForFirebase(item);
             
-            db.ref('estoque_bolsoes/' + nomeBolsao).set(dadosSeguros)
-                .then(() => {
+            // Trava de segurança para não prender a tela
+            let emergencyTimeout = setTimeout(() => {
+                hideLoading();
+                alert("O sistema está demorando muito para salvar. Verifique se a bolinha do Firebase está VERDE. Se estiver vermelha, ele não está conectado.");
+            }, 8000);
+
+            // A função .set com callback é a forma mais blindada de salvar
+            db.ref('estoque_bolsoes/' + nomeBolsao).set(dadosSeguros, (error) => {
+                clearTimeout(emergencyTimeout); // Cancela o timer se salvar rápido
+                if (error) {
+                    hideLoading(); 
+                    alert("Erro retornado pelo Firebase: " + error.message);
+                } else {
+                    // Deu tudo certo!
                     const idx = store.bolsoes.findIndex(x => x._id === id);
-                    store.bolsoes.splice(idx, 1);
+                    if(idx > -1) store.bolsoes.splice(idx, 1);
                     save(); 
                     render(); 
                     hideLoading();
-                })
-                .catch(error => {
-                    hideLoading(); 
-                    alert("Erro ao salvar no Firebase: " + error.message);
-                });
+                }
+            });
         }
 
         function puxarBolsao(cardId) {
             let nomeBolsao = prompt("Bipe ou digite o CÓDIGO DO BOLSÃO físico que você tem em mãos:");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
             
-            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]]/g, '-');
+            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]/ ]/g, '-');
 
             showLoading("Buscando na Nuvem...");
 
+            let emergencyTimeout = setTimeout(() => {
+                hideLoading();
+                alert("O sistema está demorando muito. Verifique se a bolinha do Firebase está VERDE.");
+            }, 8000);
+
             db.ref('estoque_bolsoes/' + nomeBolsao).once('value')
                 .then(snapshot => {
+                    clearTimeout(emergencyTimeout);
                     if (snapshot.exists()) {
                         const dadosBolsao = snapshot.val();
                         const card = store[currentTab].find(x => x._id === cardId);
@@ -276,6 +314,7 @@
                     }
                 })
                 .catch(error => {
+                    clearTimeout(emergencyTimeout);
                     hideLoading(); 
                     alert("Erro ao buscar no Firebase: " + error.message);
                 });
@@ -483,7 +522,7 @@
                         <div class="flex gap-2">
                             <button onclick="deleteCard('${item._id}')" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Excluir este card"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             
-                            ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Injetar Seriais salvos no Firebase"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Bolsão</button>` : ''}
+                            ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Puxar Seriais guardados na Nuvem"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Bolsão</button>` : ''}
                             
                             ${currentTab === 'bolsoes' ? `<button onclick="salvarBolsao('${item._id}')" class="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1"><i data-lucide="cloud-upload" class="w-3 h-3"></i> Guardar na Nuvem</button>` : ''}
                             
