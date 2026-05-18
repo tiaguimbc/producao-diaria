@@ -7,6 +7,10 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+    
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
     <style>
         body {
             background-image: linear-gradient(rgba(248, 250, 252, 0.7), rgba(248, 250, 252, 0.8)), url('unnamed.jpg');
@@ -44,7 +48,7 @@
 
     <div id="loading-overlay">
         <div class="animate-spin rounded-full h-16 w-16 border-t-4 border-blue-600 border-r-4 border-transparent mb-4"></div>
-        <p class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Enviando para Planilha Google...</p>
+        <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
     <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof finalizeSubmit === 'function') finalizeSubmit()"></iframe>
@@ -55,9 +59,21 @@
                 <div class="bg-blue-600 p-2 rounded-xl shadow-lg"><i data-lucide="layers" class="text-white w-6 h-6"></i></div>
                 <h1 class="text-lg font-black text-slate-800 uppercase">Produção Diária - PCP</h1>
             </div>
-            <div class="relative flex-1 md:w-64">
-                <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none">
+            
+            <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                <div class="relative w-full md:w-64">
+                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                    <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none">
+                </div>
+                
+                <div class="flex gap-2">
+                    <a href="https://catalogo-de-kits-queonetics.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
+                        <i data-lucide="book-open" class="w-3.5 h-3.5 text-blue-600"></i> Catálogo de Kits
+                    </a>
+                    <a href="https://converso-cartao-rfid.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
+                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-600"></i> Conversor RFID
+                    </a>
+                </div>
             </div>
         </div>
     </header>
@@ -67,6 +83,10 @@
             <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> TIAGO</button>
             <button onclick="switchTab('alana')" id="btn-alana" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> ALANA</button>
             <button onclick="switchTab('william')" id="btn-william" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> WILLIAM</button>
+            <button onclick="switchTab('viviane')" id="btn-viviane" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> VIVIANE</button>
+            
+            <button onclick="switchTab('bolsoes')" id="btn-bolsoes" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-violet-600 font-bold"><i data-lucide="package" class="w-4 h-4"></i> BOLSÕES</button>
+            
             <button onclick="switchTab('concluidos')" id="btn-concluidos" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-emerald-600"><i data-lucide="check-circle" class="w-4 h-4"></i> CONCLUÍDOS</button>
             <button onclick="switchTab('etiquetas')" id="btn-etiquetas" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-amber-600"><i data-lucide="tag" class="w-4 h-4"></i> ETIQUETAS</button>
         </div>
@@ -83,15 +103,21 @@
                             </div>
                             <input type="file" id="file-input" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
                         </label>
-                        <textarea id="paste-area" placeholder="Ou cole os dados aqui..." class="w-full h-20 p-4 border border-slate-200 rounded-2xl text-[10px] outline-none bg-slate-50 resize-none"></textarea>
-                        <button onclick="processPastedData()" class="w-full bg-slate-900 text-white py-3 rounded-2xl font-bold text-[10px] uppercase shadow-lg hover:bg-slate-800">Adicionar Dados</button>
+                        
+                        <textarea id="paste-area" placeholder="Cole tabela para adicionar chamados OU cole lista de seriais..." class="w-full h-20 p-4 border border-slate-200 rounded-2xl text-[10px] outline-none bg-slate-50 resize-none"></textarea>
+                        
+                        <div class="flex gap-2">
+                            <button onclick="processPastedData()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-slate-800 transition-all" title="Importar chamados a partir de texto copiado">Importar</button>
+                            <button onclick="formatarSeriais()" id="btn-formatar" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1" title="Transformar lista em formato separado por vírgulas"><i data-lucide="code" class="w-3 h-3"></i> Por Vírgulas</button>
+                        </div>
                     </div>
                 </div>
 
                 <div class="bg-slate-900 p-5 rounded-3xl text-white shadow-lg">
-                    <div class="grid grid-cols-2 gap-3 mb-4 text-center">
-                        <div class="bg-white/5 p-3 rounded-2xl border border-white/10"><p class="text-[9px] opacity-50 uppercase">Pendentes</p><p class="text-2xl font-black" id="stat-total">0</p></div>
-                        <div class="bg-white/5 p-3 rounded-2xl border border-white/10"><p class="text-[9px] opacity-50 uppercase">Feitos</p><p class="text-2xl font-black text-emerald-400" id="stat-done">0</p></div>
+                    <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Pendentes</p><p class="text-xl font-black" id="stat-total">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Feitos</p><p class="text-xl font-black text-emerald-400" id="stat-done">0</p></div>
+                        <div class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30"><p class="text-[8px] opacity-70 uppercase text-violet-300">Nuvem</p><p class="text-xl font-black text-violet-400" id="stat-nuvem">-</p></div>
                     </div>
                     <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
                 </div>
@@ -99,7 +125,7 @@
 
             <section id="cards-grid" class="lg:col-span-2">
                 <div id="concluidos-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500 bg-emerald-50/50">
-                    <button onclick="acaoSalvarTodos()" class="w-full bg-violet-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-violet-700 transition-all">Sincronizar Todos com Planilha Google</button>
+                    <button onclick="acaoSalvarTodos()" class="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-emerald-700 transition-all">Sincronizar Todos com Planilha Google</button>
                 </div>
                 <div id="etiquetas-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-amber-500 bg-amber-50/50">
                     <button onclick="exportarEtiquetas()" class="w-full bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-green-700 transition-all">Gerar Excel de Etiquetas</button>
@@ -108,6 +134,8 @@
                 <div id="tiago" class="tab-content active"><div class="space-y-4" id="container-tiago"></div></div>
                 <div id="alana" class="tab-content"><div class="space-y-4" id="container-alana"></div></div>
                 <div id="william" class="tab-content"><div class="space-y-4" id="container-william"></div></div>
+                <div id="viviane" class="tab-content"><div class="space-y-4" id="container-viviane"></div></div>
+                <div id="bolsoes" class="tab-content"><div class="space-y-4" id="container-bolsoes"></div></div>
                 <div id="concluidos" class="tab-content"><div class="space-y-4" id="container-concluidos"></div></div>
                 <div id="etiquetas" class="tab-content"><div class="space-y-4" id="container-etiquetas"></div></div>
 
@@ -120,21 +148,116 @@
     </main>
 
     <script>
+        // ==========================================
+        // CONFIGURAÇÃO DO FIREBASE (NUVEM DE BOLSÕES)
+        // ==========================================
+        const firebaseConfig = {
+            apiKey: "AIzaSyCpDi18ridgdvc1GK6VLHlvJ1UDRbZGyl0",
+            authDomain: "pcp-projeto-4aa40.firebaseapp.com",
+            databaseURL: "https://pcp-projeto-4aa40-default-rtdb.firebaseio.com",
+            projectId: "pcp-projeto-4aa40",
+            storageBucket: "pcp-projeto-4aa40.firebasestorage.app",
+            messagingSenderId: "850834146931",
+            appId: "1:850834146931:web:1524870b589fafaaef4c06"
+        };
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.database();
+
+        // Monitora quantos bolsões existem na nuvem ao vivo
+        db.ref('estoque_bolsoes').on('value', snapshot => {
+            const count = snapshot.numChildren();
+            document.getElementById('stat-nuvem').innerText = count;
+        });
+
+        // ==========================================
+        // CONFIGURAÇÕES GERAIS DO SISTEMA
+        // ==========================================
         const WEB_APP_URL = "https://script.google.com/a/macros/queonetics.com/s/AKfycby2ftCCf4SipPtZPnMuzzFFBcLoB54OXp4ssOk7hLS0w8aRK-b9C_CmVaR8lJihVgPg/exec";
         const DB_NAME = 'producao_pcp_v5_store';
         const JIRA_BASE_URL = "https://jira.trixlog.com/browse/";
         
         let currentTab = 'tiago';
-        let store = JSON.parse(localStorage.getItem(DB_NAME)) || { tiago: [], alana: [], william: [], concluidos: [], etiquetas: [] };
+        let store = JSON.parse(localStorage.getItem(DB_NAME)) || { tiago: [], alana: [], william: [], viviane: [], bolsoes: [], concluidos: [], etiquetas: [] };
+        
+        if (store.vivine) { store.viviane = store.vivine; delete store.vivine; }
+        if (!store.viviane) store.viviane = [];
+        if (!store.bolsoes) store.bolsoes = []; // Garante que a aba bolsoes exista
+        localStorage.setItem(DB_NAME, JSON.stringify(store));
         
         let submissionQueue = [];
         let currentProcessingId = null;
         let isBatchSubmit = false;
-
+        
+        let lastJumpTime = 0; 
         const camposSeriais = ["Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"];
         
         function save() { localStorage.setItem(DB_NAME, JSON.stringify(store)); updateStats(); }
 
+        function showLoading(msg) {
+            document.getElementById('loading-text').innerText = msg || "Processando...";
+            document.getElementById('loading-overlay').style.display = 'flex';
+        }
+        function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
+
+        // ==========================================
+        // FUNÇÕES DO FIREBASE (SALVAR E PUXAR BOLSÃO)
+        // ==========================================
+        function salvarBolsao(id) {
+            const item = store.bolsoes.find(x => x._id === id);
+            if (!item) return;
+
+            let nomeBolsao = prompt("Confirme ou digite o CÓDIGO de identificação deste bolsão na etiqueta física (Ex: BOLSÃO-001):", item[item._titleField] || "");
+            if (!nomeBolsao || nomeBolsao.trim() === "") return; // Cancelou
+            
+            nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[.#$\[\]]/g, '-'); // Segurança Firebase
+
+            showLoading("Salvando no Firebase...");
+            
+            db.ref('estoque_bolsoes/' + nomeBolsao).set(item).then(() => {
+                const idx = store.bolsoes.findIndex(x => x._id === id);
+                store.bolsoes.splice(idx, 1);
+                save(); render(); hideLoading();
+            }).catch(err => {
+                hideLoading(); alert("Erro ao salvar no Firebase: " + err.message);
+            });
+        }
+
+        function puxarBolsao(cardId) {
+            // Abre o prompt. O operador pode apenas Bipar o código de barras com a pistola.
+            let nomeBolsao = prompt("Bipe ou digite o CÓDIGO DO BOLSÃO físico que você vai usar:");
+            if (!nomeBolsao || nomeBolsao.trim() === "") return;
+            
+            nomeBolsao = nomeBolsao.trim().toUpperCase();
+
+            showLoading("Buscando na Nuvem...");
+
+            db.ref('estoque_bolsoes/' + nomeBolsao).once('value').then(snapshot => {
+                if (snapshot.exists()) {
+                    const dadosBolsao = snapshot.val();
+                    const card = store[currentTab].find(x => x._id === cardId);
+                    
+                    if (card) {
+                        // Preenche os campos do chamado com os dados do bolsão da nuvem
+                        camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
+                        save();
+                        
+                        // Apaga o bolsão da nuvem (pois já foi consumido)
+                        db.ref('estoque_bolsoes/' + nomeBolsao).remove().then(() => {
+                            render(); hideLoading();
+                        });
+                    }
+                } else {
+                    hideLoading();
+                    alert("Atenção: Bolsão '" + nomeBolsao + "' não encontrado no Estoque da Nuvem.");
+                }
+            }).catch(err => {
+                hideLoading(); alert("Erro ao buscar no Firebase: " + err.message);
+            });
+        }
+
+        // ==========================================
+        // IMPORTAÇÃO DE DADOS E ARQUIVOS
+        // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -144,22 +267,12 @@
             reader.onload = (e) => {
                 try {
                     let workbook;
-                    if (isCSV) {
-                        workbook = XLSX.read(e.target.result, { type: 'string' });
-                    } else {
-                        const data = new Uint8Array(e.target.result);
-                        workbook = XLSX.read(data, { type: 'array' });
-                    }
+                    if (isCSV) { workbook = XLSX.read(e.target.result, { type: 'string' }); } 
+                    else { const data = new Uint8Array(e.target.result); workbook = XLSX.read(data, { type: 'array' }); }
                     processSheet(workbook.Sheets[workbook.SheetNames[0]]);
-                } catch(err) {
-                    alert("Erro ao ler arquivo. Verifique se o formato é válido.");
-                }
+                } catch(err) { alert("Erro ao ler arquivo. Verifique se o formato é válido."); }
             };
-            if (isCSV) {
-                reader.readAsText(file, 'UTF-8');
-            } else {
-                reader.readAsArrayBuffer(file);
-            }
+            if (isCSV) { reader.readAsText(file, 'UTF-8'); } else { reader.readAsArrayBuffer(file); }
             event.target.value = '';
         }
 
@@ -170,6 +283,32 @@
                 processSheet(wb.Sheets[wb.SheetNames[0]]);
                 document.getElementById('paste-area').value = '';
             }
+        }
+
+        function formatarSeriais() {
+            const textArea = document.getElementById('paste-area');
+            const text = textArea.value;
+            if (!text.trim()) return;
+            const seriais = text.split(/[\n\t\s,]+/).filter(s => s.trim() !== '');
+            const formatado = seriais.join(',');
+            textArea.value = formatado;
+            navigator.clipboard.writeText(formatado).then(() => {
+                const btn = document.getElementById('btn-formatar');
+                const originalHtml = btn.innerHTML;
+                btn.innerHTML = '<i data-lucide="check" class="w-3 h-3"></i> Copiado!';
+                btn.classList.replace('bg-blue-600', 'bg-emerald-600');
+                btn.classList.replace('hover:bg-blue-700', 'hover:bg-emerald-700');
+                lucide.createIcons();
+                setTimeout(() => {
+                    btn.innerHTML = originalHtml;
+                    btn.classList.replace('bg-emerald-600', 'bg-blue-600');
+                    btn.classList.replace('hover:bg-emerald-700', 'hover:bg-blue-700');
+                    lucide.createIcons();
+                }, 2000);
+            }).catch(err => {
+                textArea.select();
+                alert("Seriais formatados! Copie o texto da caixa.");
+            });
         }
 
         function processSheet(sheet) {
@@ -186,20 +325,92 @@
                     if (item[cleanKey]) item[cleanKey] += " + " + val;
                     else item[cleanKey] = val;
                 });
-
                 let titleField = item["Chave da ocorrência"] ? "Chave da ocorrência" : (item["Chamados"] ? "Chamados" : rawHeaders[0]);
                 let link = null;
-                const linkSearch = JSON.stringify(item);
-                
-                const match = linkSearch.match(/(CONFIGURAR|PROCONFIG)-\d+/i);
-                
+                const match = JSON.stringify(item).match(/(CONFIGURAR|PROCONFIG)-\d+/i);
                 if (match) link = JIRA_BASE_URL + match[0].toUpperCase();
-
                 return { ...item, _id: 'ID-'+Math.random().toString(36).substr(2,9), _origin: currentTab, _link: link, _titleField: titleField };
             });
-
             store[currentTab] = [...store[currentTab], ...processed];
             save(); render();
+        }
+
+        // ==========================================
+        // AUTO-AVANÇO DA PISTOLA
+        // ==========================================
+        function handleEnter(e, cardId) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                advanceToNextInput(e.target, cardId);
+            }
+        }
+
+        function advanceToNextInput(currentEl, cardId) {
+            const now = Date.now();
+            if (now - lastJumpTime < 150) return; 
+            const inputs = Array.from(document.querySelectorAll(`.serial-input-${cardId}`));
+            const currentIndex = inputs.indexOf(currentEl);
+            for (let i = currentIndex + 1; i < inputs.length; i++) {
+                if (inputs[i].value.trim() === '') {
+                    inputs[i].focus(); lastJumpTime = now; return;
+                }
+            }
+            if (currentIndex > -1 && currentIndex < inputs.length - 1) {
+                inputs[currentIndex + 1].focus(); lastJumpTime = now;
+            }
+        }
+
+        function validateAndAdvance(el, campo, cardId) {
+            const val = String(el.value || '');
+            const digitsOnly = val.replace(/\D/g, '');
+            
+            el.classList.remove(
+                'bg-slate-50', 'border-slate-200', 'focus:ring-blue-500',
+                'bg-red-50', 'border-red-500', 'text-red-600', 'focus:ring-red-500',
+                'bg-emerald-50', 'border-emerald-500', 'text-emerald-700', 'focus:ring-emerald-500'
+            );
+
+            if (val.trim() === '') { 
+                el.classList.add('bg-slate-50', 'border-slate-200', 'focus:ring-blue-500'); 
+                el.dataset.valid = "false"; return; 
+            }
+
+            let isValid = false;
+            if (campo === 'Iccid' || campo === 'Iccid Camera') isValid = digitsOnly.length === 20;
+            else if (campo === 'Serial TX009' || campo === 'Serial Leitor' || campo === 'Serial Teclado') isValid = digitsOnly.length === 6;
+            else if (campo === 'Serial Smart Speaker') isValid = digitsOnly.length === 4;
+            else if (campo === 'Serial Câmera') isValid = digitsOnly.length === 15;
+            else if (campo === 'Serial Rastreador') {
+                if (digitsOnly.startsWith('4675') || digitsOnly.startsWith('4634')) isValid = digitsOnly.length === 10;
+                else if (digitsOnly.startsWith('86') || digitsOnly.startsWith('35')) isValid = digitsOnly.length === 15;
+            }
+
+            if (!isValid) {
+                el.classList.add('bg-red-50', 'border-red-500', 'text-red-600', 'focus:ring-red-500');
+                el.dataset.valid = "false";
+            } else {
+                el.classList.add('bg-emerald-50', 'border-emerald-500', 'text-emerald-700', 'focus:ring-emerald-500');
+                if (el.dataset.valid !== "true") {
+                    el.dataset.valid = "true";
+                    advanceToNextInput(el, cardId); 
+                }
+            }
+        }
+
+        // ==========================================
+        // RENDERIZAÇÃO DE TELA
+        // ==========================================
+        function deleteCard(id) {
+            if (confirm("Tem certeza que deseja excluir este registro? Esta ação não pode ser desfeita.")) {
+                const idx = store[currentTab].findIndex(x => x._id === id);
+                if (idx > -1) { store[currentTab].splice(idx, 1); save(); render(); }
+            }
+        }
+
+        function concluir(id) {
+            const idx = store[currentTab].findIndex(x=>x._id===id);
+            const i = store[currentTab].splice(idx, 1)[0];
+            store.concluidos.unshift(i); save(); render();
         }
 
         function render() {
@@ -207,7 +418,6 @@
             const data = store[currentTab];
             container.innerHTML = '';
             document.getElementById('empty-state').style.display = data.length > 0 ? 'none' : 'flex';
-            
             data.forEach(item => {
                 const isConcluido = currentTab === 'concluidos';
                 const card = document.createElement('div');
@@ -215,8 +425,41 @@
                 
                 let title = item[item._titleField] || "Sem ID";
                 let inputs = '';
+                
                 camposSeriais.forEach(c => {
-                    inputs += `<div><label class="text-[7px] font-bold text-slate-400 uppercase">${c}</label><input type="text" value="${item[c]||''}" onchange="updateVal('${item._id}','${c}',this.value)" class="w-full bg-slate-50 border border-slate-200 text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:ring-1 focus:ring-blue-500"></div>`;
+                    let val = item[c] || '';
+                    let colorClasses = "bg-slate-50 border-slate-200 focus:ring-blue-500"; 
+                    let isValidData = "false";
+
+                    if (val.length > 0) {
+                        let digitsOnly = val.replace(/\D/g, '');
+                        let isValid = true;
+                        let needsValidation = false;
+
+                        if (c === 'Iccid' || c === 'Iccid Camera') { isValid = digitsOnly.length === 20; needsValidation = true; } 
+                        else if (c === 'Serial TX009' || c === 'Serial Leitor' || c === 'Serial Teclado') { isValid = digitsOnly.length === 6; needsValidation = true; } 
+                        else if (c === 'Serial Smart Speaker') { isValid = digitsOnly.length === 4; needsValidation = true; } 
+                        else if (c === 'Serial Câmera') { isValid = digitsOnly.length === 15; needsValidation = true; } 
+                        else if (c === 'Serial Rastreador') {
+                            needsValidation = true;
+                            if (digitsOnly.startsWith('4675') || digitsOnly.startsWith('4634')) { isValid = digitsOnly.length === 10; } 
+                            else if (digitsOnly.startsWith('86') || digitsOnly.startsWith('35')) { isValid = digitsOnly.length === 15; } 
+                            else { isValid = false; }
+                        }
+
+                        if (needsValidation) {
+                            if (!isValid) { colorClasses = "bg-red-50 border-red-500 text-red-600 focus:ring-red-500"; } 
+                            else { colorClasses = "bg-emerald-50 border-emerald-500 text-emerald-700 focus:ring-emerald-500"; isValidData = "true"; }
+                        }
+                    }
+
+                    inputs += `<div>
+                        <label class="text-[7px] font-bold text-slate-400 uppercase">${c}</label>
+                        <input type="text" data-valid="${isValidData}" value="${val}" 
+                            onkeydown="handleEnter(event, '${item._id}')" 
+                            oninput="updateVal('${item._id}','${c}',this.value); validateAndAdvance(this, '${c}', '${item._id}')" 
+                            class="serial-input-${item._id} w-full border text-[10px] font-bold rounded-lg px-2 py-1.5 outline-none focus:ring-1 transition-colors ${colorClasses}">
+                    </div>`;
                 });
 
                 let details = '';
@@ -226,16 +469,22 @@
                     }
                 });
                 
-                // --- MUDANÇA DO BOTÃO DO JIRA AQUI ---
                 card.innerHTML = `
                     <div class="px-4 py-3 bg-slate-50 border-b flex justify-between items-center">
                         <div class="flex items-center gap-2">
                             <span class="text-[11px] font-black text-slate-800">${title}</span>
-                            ${item._link ? `<button onclick="abrirJiraComDados('${item._id}')" class="bg-blue-600 hover:bg-blue-700 text-[9px] text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors">Autopreencher Jira <i data-lucide="external-link" class="w-3 h-3"></i></button>` : ''}
+                            ${item._link && currentTab !== 'bolsoes' ? `<button onclick="abrirJiraComDados('${item._id}')" class="bg-blue-600 hover:bg-blue-700 text-[9px] text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors">Autopreencher Jira <i data-lucide="external-link" class="w-3 h-3"></i></button>` : ''}
                         </div>
                         <div class="flex gap-2">
+                            <button onclick="deleteCard('${item._id}')" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Excluir este card"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
+                            
+                            ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Injetar Seriais salvos no Firebase"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Bolsão</button>` : ''}
+                            
+                            ${currentTab === 'bolsoes' ? `<button onclick="salvarBolsao('${item._id}')" class="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1"><i data-lucide="cloud-upload" class="w-3 h-3"></i> Guardar na Nuvem</button>` : ''}
+                            
                             ${isConcluido ? `<button onclick="enviarIndividual('${item._id}')" class="bg-violet-600 hover:bg-violet-700 text-white px-3 py-1 rounded-lg text-[9px] font-bold uppercase flex items-center gap-1 transition-colors">Enviar Planilha <i data-lucide="send" class="w-3 h-3"></i></button>` : ''}
-                            ${!isConcluido && currentTab !== 'etiquetas' ? `<button onclick="concluir('${item._id}')" class="bg-slate-900 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors">Concluir</button>` : ''}
+                            
+                            ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="concluir('${item._id}')" class="bg-slate-900 hover:bg-emerald-600 text-white px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors">Concluir</button>` : ''}
                         </div>
                     </div>
                     <div class="p-4">
@@ -246,41 +495,27 @@
                 container.appendChild(card);
             });
             lucide.createIcons();
+            
+            filterCards(); 
         }
 
-        // --- NOVA FUNÇÃO PARA ENVIAR DADOS PARA O TAMPERMONKEY ---
+        // ==========================================
+        // OUTRAS INTEGRAÇÕES (JIRA E PLANILHA GOOGLE)
+        // ==========================================
         function abrirJiraComDados(id) {
             const item = store[currentTab].find(x => x._id === id);
             if (!item || !item._link) return;
-
-            // Mapeamento dos campos do seu PCP para enviar na URL
-            const dadosParaEnviar = {
-                serial: item["Serial Rastreador"] || "",
-                iccid: item["Iccid"] || "",
-                tx009: item["Serial TX009"] || "",
-                leitor: item["Serial Leitor"] || "",
-                teclado: item["Serial Teclado"] || "",
-                smartspeaker: item["Serial Smart Speaker"] || "",
-                camera: item["Serial Câmera"] || ""
-            };
-            
+            const dadosParaEnviar = { serial: item["Serial Rastreador"] || "", iccid: item["Iccid"] || "", tx009: item["Serial TX009"] || "", leitor: item["Serial Leitor"] || "", teclado: item["Serial Teclado"] || "", smartspeaker: item["Serial Smart Speaker"] || "", camera: item["Serial Câmera"] || "" };
             const urlJira = new URL(item._link);
             urlJira.searchParams.append("autofill", "true");
-            
-            // Adiciona apenas os campos que estiverem preenchidos no link
-            Object.entries(dadosParaEnviar).forEach(([chave, valor]) => {
-                if (valor && valor.toString().trim() !== "") {
-                    urlJira.searchParams.append(chave, valor);
-                }
-            });
-
+            Object.entries(dadosParaEnviar).forEach(([chave, valor]) => { if (valor && valor.toString().trim() !== "") { urlJira.searchParams.append(chave, valor); } });
             window.open(urlJira.toString(), '_blank');
         }
 
         function acaoSalvarTodos() {
             if (store.concluidos.length === 0) return;
             isBatchSubmit = true;
-            document.getElementById('loading-overlay').style.display = 'flex';
+            showLoading("Enviando para Planilha Google...");
             submissionQueue = [...store.concluidos];
             processNextInQueue();
         }
@@ -289,14 +524,14 @@
             const item = store.concluidos.find(i => i._id === id);
             if (!item) return;
             isBatchSubmit = false;
-            document.getElementById('loading-overlay').style.display = 'flex';
+            showLoading("Enviando para Planilha Google...");
             submissionQueue = [item];
             processNextInQueue();
         }
 
         function processNextInQueue() {
             if (submissionQueue.length === 0) {
-                document.getElementById('loading-overlay').style.display = 'none';
+                hideLoading();
                 if (isBatchSubmit) alert("Sincronização de todos os cards concluída!");
                 return;
             }
@@ -304,9 +539,7 @@
             currentProcessingId = item._id;
             
             const form = document.createElement('form');
-            form.method = 'POST';
-            form.action = WEB_APP_URL;
-            form.target = 'hidden_iframe';
+            form.method = 'POST'; form.action = WEB_APP_URL; form.target = 'hidden_iframe';
             Object.entries(item).forEach(([k, v]) => {
                 if (!k.startsWith('_') || k === '_origin') {
                     const inp = document.createElement('input');
@@ -350,25 +583,14 @@
             XLSX.utils.book_append_sheet(wb, ws, "Etiquetas");
             
             XLSX.writeFile(wb, "Etiquetas_PCP.xlsx");
-            
             setTimeout(() => {
                 if(confirm("Planilha baixada! Deseja limpar os registros da aba de Etiquetas?")) {
-                    store.etiquetas = [];
-                    save();
-                    render();
+                    store.etiquetas = []; save(); render();
                 }
             }, 500);
         }
 
-        function updateVal(id,f,v) { const i = store[currentTab].find(x=>x._id===id); if(i){i[f]=v;save();}}
-        
-        function concluir(id) {
-            const idx = store[currentTab].findIndex(x=>x._id===id);
-            const i = store[currentTab].splice(idx, 1)[0];
-            store.concluidos.unshift(i);
-            save(); render();
-        }
-        
+        function updateVal(id,f,v) { const i = store[currentTab].find(x=>x._id===id); if(i){i[f]=v;save();} }
         function clearCurrentTab() { if(confirm("Limpar dados desta aba?")) { store[currentTab]=[]; save(); render(); } }
         
         function switchTab(id) { 
@@ -378,17 +600,32 @@
             document.getElementById('current-name').innerText = id.charAt(0).toUpperCase() + id.slice(1);
             document.getElementById('concluidos-tools').classList.toggle('hidden', id !== 'concluidos');
             document.getElementById('etiquetas-tools').classList.toggle('hidden', id !== 'etiquetas');
-            render(); 
+            document.getElementById('search-input').value = '';
+            render();
         }
         
         function updateStats() {
-            document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length;
+            document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
         
         function filterCards() {
             const q = document.getElementById('search-input').value.toLowerCase();
-            document.querySelectorAll('.card-animation').forEach(c => c.style.display = c.innerText.toLowerCase().includes(q) ? 'block' : 'none');
+            let visibleCount = 0;
+            document.querySelectorAll('.card-animation').forEach(c => {
+                const isMatch = c.innerText.toLowerCase().includes(q);
+                c.style.display = isMatch ? 'block' : 'none';
+                if (isMatch) visibleCount++; 
+            });
+            if (q.trim() !== '') {
+                if (['tiago', 'alana', 'william', 'viviane', 'bolsoes'].includes(currentTab)) {
+                    document.getElementById('stat-total').innerText = visibleCount;
+                } else if (currentTab === 'concluidos') {
+                    document.getElementById('stat-done').innerText = visibleCount;
+                }
+            } else {
+                updateStats();
+            }
         }
 
         window.onload = () => { render(); updateStats(); };
