@@ -58,7 +58,7 @@
     </div>
 
     <div id="cloud-modal-overlay">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-md flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
+        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-lg flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
             <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
                 <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
                     <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> Estoque na Nuvem
@@ -138,12 +138,12 @@
 
                 <div class="bg-slate-900 p-5 rounded-3xl text-white shadow-lg">
                     <div class="grid grid-cols-3 gap-2 mb-4 text-center">
-                        <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Pendentes</p><p class="text-xl font-black" id="stat-total">0</p></div>
-                        <div class="bg-white/5 p-2 rounded-xl border border-white/10"><p class="text-[8px] opacity-50 uppercase">Feitos</p><p class="text-xl font-black text-emerald-400" id="stat-done">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Pendentes</p><p class="text-xl font-black leading-none" id="stat-total">0</p></div>
+                        <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Feitos</p><p class="text-xl font-black text-emerald-400 leading-none" id="stat-done">0</p></div>
                         
-                        <div onclick="abrirEstoqueNuvem()" class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 cursor-pointer hover:bg-violet-800/60 transition-colors shadow-lg shadow-violet-900/20 group" title="Clique para ver a lista de bolsões">
-                            <p class="text-[8px] opacity-70 uppercase text-violet-300 flex items-center justify-center gap-1">Nuvem <i data-lucide="external-link" class="w-2 h-2 opacity-50 group-hover:opacity-100 transition-opacity"></i></p>
-                            <p class="text-xl font-black text-violet-400" id="stat-nuvem">-</p>
+                        <div onclick="abrirEstoqueNuvem()" class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 cursor-pointer hover:bg-violet-800/60 transition-colors shadow-lg shadow-violet-900/20 group flex flex-col justify-center" title="Clique para ver a lista de bolsões">
+                            <p class="text-[7.5px] leading-tight opacity-70 uppercase text-violet-300 flex items-center justify-center gap-1 text-center mb-1">Bolsões na Nuvem <i data-lucide="external-link" class="w-2 h-2 opacity-50 group-hover:opacity-100 transition-opacity"></i></p>
+                            <p class="text-xl font-black text-violet-400 leading-none" id="stat-nuvem">-</p>
                         </div>
                     </div>
                     <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
@@ -189,15 +189,16 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Escuta o estoque na nuvem ao vivo
+        // Escuta o estoque na nuvem ao vivo (Firestore listener)
         db.collection('estoque_bolsoes').onSnapshot((snapshot) => {
             document.getElementById('stat-nuvem').innerText = snapshot.size;
         }, (error) => {
+            console.error("Erro ao conectar no Firestore:", error);
             document.getElementById('stat-nuvem').innerText = "!";
         });
 
         // ==========================================
-        // 2. FUNÇÕES DO MODAL (ESTOQUE NA NUVEM)
+        // 2. FUNÇÕES DO MODAL (ESTOQUE NA NUVEM) COM PRÉVIA
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -221,21 +222,34 @@
 
                 querySnapshot.forEach((doc) => {
                     const dados = doc.data();
-                    const serialPrev = dados['Serial Rastreador'] || 'Sem Serial Registrado';
+                    
+                    // Monta as "etiquetas" de prévia dos seriais
+                    let previewHTML = '';
+                    camposSeriais.forEach(c => {
+                        if (dados[c] && String(dados[c]).trim() !== '') {
+                            // Tira a palavra "Serial" para a etiqueta ficar menor (Ex: "Rastreador: 1234")
+                            let nomeCurto = c.replace('Serial ', '');
+                            previewHTML += `<span class="inline-block bg-white border border-slate-200 shadow-sm rounded px-1.5 py-0.5 text-[8.5px] font-bold text-slate-500 mr-1.5 mb-1.5">${nomeCurto}: <span class="text-slate-800">${dados[c]}</span></span>`;
+                        }
+                    });
+
+                    if(previewHTML === '') previewHTML = '<span class="text-[9px] text-slate-400 italic">Nenhum serial bipado neste bolsão</span>';
                     
                     lista.innerHTML += `
-                        <div class="flex justify-between items-center bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group">
-                            <div>
-                                <p class="font-black text-slate-800 text-[13px] tracking-tight flex items-center gap-1">
-                                    <i data-lucide="package" class="w-3.5 h-3.5 text-violet-500"></i> ${doc.id}
+                        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group gap-3">
+                            <div class="flex-1 w-full">
+                                <p class="font-black text-slate-800 text-[14px] tracking-tight flex items-center gap-1.5 mb-2">
+                                    <i data-lucide="package" class="w-4 h-4 text-violet-500"></i> ${doc.id}
                                 </p>
-                                <p class="text-[9px] font-bold text-slate-400 uppercase mt-0.5">Rastreador: <span class="text-slate-600">${serialPrev}</span></p>
+                                <div class="flex flex-wrap items-center w-full">
+                                    ${previewHTML}
+                                </div>
                             </div>
-                            <div class="flex gap-2 opacity-100 md:opacity-0 group-hover:opacity-100 transition-opacity">
-                                <button onclick="copiarIDBolsao('${doc.id}')" class="bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white p-2 rounded-lg transition-colors shadow-sm" title="Copiar Nome do Bolsão">
-                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i>
+                            <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity">
+                                <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-2 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar Nome do Bolsão">
+                                    <i data-lucide="copy" class="w-3.5 h-3.5"></i> Copiar ID
                                 </button>
-                                <button onclick="excluirBolsaoNuvem('${doc.id}')" class="bg-red-100 text-red-600 hover:bg-red-600 hover:text-white p-2 rounded-lg transition-colors shadow-sm" title="Excluir Permanentemente">
+                                <button onclick="excluirBolsaoNuvem('${doc.id}')" class="flex items-center justify-center bg-red-100 text-red-600 hover:bg-red-600 hover:text-white px-3 py-2 rounded-lg transition-colors shadow-sm" title="Excluir Permanentemente">
                                     <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
                                 </button>
                             </div>
@@ -692,6 +706,7 @@
         }
         
         function updateStats() {
+            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
