@@ -4,6 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produção Diária - PCP</title>
+    
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#2563eb">
+    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -12,7 +16,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- SDKs do Firestore (O Banco de Dados Moderno do Google) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
 
@@ -58,7 +61,6 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
-    <!-- MODAL DE ESTOQUE NA NUVEM -->
     <div id="cloud-modal-overlay">
         <div class="bg-white rounded-3xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
             <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -69,9 +71,7 @@
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
             </div>
-            <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white">
-                <!-- Lista será injetada aqui via JavaScript -->
-            </div>
+            <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white"></div>
         </div>
     </div>
 
@@ -179,7 +179,18 @@
 
     <script>
         // ==========================================
-        // 1. INICIALIZAÇÃO DO CLOUD FIRESTORE
+        // REGISTRO DO SERVICE WORKER (PWA APP)
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('./sw.js').catch((err) => {
+                    console.log('SW Registration failed: ', err);
+                });
+            });
+        }
+
+        // ==========================================
+        // INICIALIZAÇÃO DO CLOUD FIRESTORE
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCpDi18ridgdvc1GK6VLHlvJ1UDRbZGyl0",
@@ -192,7 +203,6 @@
         firebase.initializeApp(firebaseConfig);
         const db = firebase.firestore();
 
-        // Escuta o estoque na nuvem ao vivo
         db.collection('estoque_bolsoes').onSnapshot((snapshot) => {
             document.getElementById('stat-nuvem').innerText = snapshot.size;
         }, (error) => {
@@ -200,7 +210,7 @@
         });
 
         // ==========================================
-        // 2. FUNÇÕES DO MODAL (APENAS DATA DE SALVAMENTO)
+        // FUNÇÕES DO MODAL
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -224,11 +234,8 @@
 
                 querySnapshot.forEach((doc) => {
                     const dados = doc.data();
-                    
-                    // Extrai a informação de log (Data)
                     const dataLog = dados['_dataSalvamento'] || '--/--/----';
                     
-                    // Monta as "etiquetas" de prévia dos seriais
                     let previewHTML = '';
                     camposSeriais.forEach(c => {
                         if (dados[c] && String(dados[c]).trim() !== '') {
@@ -271,28 +278,16 @@
             });
         }
 
-        function fecharEstoqueNuvem() {
-            document.getElementById('cloud-modal-overlay').style.display = 'none';
-        }
-
-        function copiarIDBolsao(id) {
-            navigator.clipboard.writeText(id).then(() => {
-                alert(`✅ Código '${id}' copiado! Você pode colar ele na caixa de Puxar Bolsão.`);
-            });
-        }
-
+        function fecharEstoqueNuvem() { document.getElementById('cloud-modal-overlay').style.display = 'none'; }
+        function copiarIDBolsao(id) { navigator.clipboard.writeText(id).then(() => { alert(`✅ Código '${id}' copiado! Você pode colar ele na caixa de Puxar Bolsão.`); }); }
         function excluirBolsaoNuvem(id) {
             if (confirm(`Atenção: Tem certeza que deseja DELETAR o bolsão '${id}' da Nuvem?\n\nOs seriais dentro dele serão apagados permanentemente.`)) {
-                db.collection("estoque_bolsoes").doc(id).delete().then(() => {
-                    abrirEstoqueNuvem(); 
-                }).catch((error) => {
-                    alert("Erro ao excluir: " + error.message);
-                });
+                db.collection("estoque_bolsoes").doc(id).delete().then(() => { abrirEstoqueNuvem(); }).catch((error) => { alert("Erro ao excluir: " + error.message); });
             }
         }
 
         // ==========================================
-        // 3. VARIÁVEIS GERAIS
+        // VARIÁVEIS GERAIS
         // ==========================================
         const WEB_APP_URL = "https://script.google.com/a/macros/queonetics.com/s/AKfycby2ftCCf4SipPtZPnMuzzFFBcLoB54OXp4ssOk7hLS0w8aRK-b9C_CmVaR8lJihVgPg/exec";
         const DB_NAME = 'producao_pcp_v5_store';
@@ -322,7 +317,7 @@
         function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         // ==========================================
-        // 4. LÓGICA DO BOLSÃO NO FIRESTORE
+        // LÓGICA DO BOLSÃO NO FIRESTORE
         // ==========================================
         function sanitizeForFirestore(obj) {
             if (!obj || typeof obj !== 'object') return obj;
@@ -346,7 +341,6 @@
             showLoading("Salvando no Firestore...");
             const dadosSeguros = sanitizeForFirestore(item);
             
-            // INSERE DADOS DE LOG (Apenas Data e Hora)
             const dataAtual = new Date();
             const diaMes = dataAtual.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             const horaMinuto = dataAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -356,14 +350,8 @@
             .then(() => {
                 const idx = store.bolsoes.findIndex(x => x._id === id);
                 store.bolsoes.splice(idx, 1);
-                save(); 
-                render(); 
-                hideLoading();
-            })
-            .catch((error) => {
-                hideLoading();
-                alert("Erro ao salvar no banco: " + error.message);
-            });
+                save(); render(); hideLoading();
+            }).catch((error) => { hideLoading(); alert("Erro ao salvar no banco: " + error.message); });
         }
 
         function puxarBolsao(cardId) {
@@ -380,28 +368,19 @@
                 if (doc.exists) {
                     const dadosBolsao = doc.data();
                     const card = store[currentTab].find(x => x._id === cardId);
-                    
                     if (card) {
                         camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
                         save();
-                        
-                        docRef.delete().then(() => {
-                            render(); 
-                            hideLoading();
-                        });
+                        docRef.delete().then(() => { render(); hideLoading(); });
                     }
                 } else {
-                    hideLoading();
-                    alert("Atenção: Bolsão '" + nomeBolsao + "' não encontrado no estoque da nuvem.");
+                    hideLoading(); alert("Atenção: Bolsão '" + nomeBolsao + "' não encontrado no estoque da nuvem.");
                 }
-            }).catch((error) => {
-                hideLoading();
-                alert("Erro ao buscar no banco: " + error.message);
-            });
+            }).catch((error) => { hideLoading(); alert("Erro ao buscar no banco: " + error.message); });
         }
 
         // ==========================================
-        // 5. RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
+        // RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
         // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
@@ -721,7 +700,6 @@
         }
         
         function updateStats() {
-            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
