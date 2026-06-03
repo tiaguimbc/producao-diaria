@@ -200,7 +200,7 @@
         });
 
         // ==========================================
-        // 2. FUNÇÕES DO MODAL COM LOG DE AUTORIA
+        // 2. FUNÇÕES DO MODAL (APENAS DATA DE SALVAMENTO)
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -225,8 +225,7 @@
                 querySnapshot.forEach((doc) => {
                     const dados = doc.data();
                     
-                    // Extrai as informações de log (Autoria e Data)
-                    const autorLog = dados['_autor'] || 'Desconhecido';
+                    // Extrai a informação de log (Data)
                     const dataLog = dados['_dataSalvamento'] || '--/--/----';
                     
                     // Monta as "etiquetas" de prévia dos seriais
@@ -248,9 +247,7 @@
                                         <i data-lucide="package" class="w-4 h-4 text-violet-500"></i> ${doc.id}
                                     </p>
                                     <div class="flex items-center gap-1.5 bg-slate-200/60 px-2 py-1 rounded-md text-[9px] font-bold text-slate-500 shadow-sm">
-                                        <i data-lucide="user" class="w-3 h-3 text-slate-400"></i> ${autorLog}
-                                        <span class="text-slate-300 mx-0.5">|</span>
-                                        <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> ${dataLog}
+                                        <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> Salvo em: ${dataLog}
                                     </div>
                                 </div>
                                 <div class="flex flex-wrap items-center w-full">
@@ -349,10 +346,7 @@
             showLoading("Salvando no Firestore...");
             const dadosSeguros = sanitizeForFirestore(item);
             
-            // INSERE DADOS DE LOG INVISÍVEIS PARA O MODAL
-            dadosSeguros['_autor'] = currentTab.charAt(0).toUpperCase() + currentTab.slice(1);
-            
-            // Pega apenas hora e minuto para não poluir
+            // INSERE DADOS DE LOG (Apenas Data e Hora)
             const dataAtual = new Date();
             const diaMes = dataAtual.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             const horaMinuto = dataAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
@@ -727,6 +721,7 @@
         }
         
         function updateStats() {
+            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
