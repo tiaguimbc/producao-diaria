@@ -1,0 +1,21 @@
+{
+  "name": "Produção Diária - PCP",
+  "short_name": "PCP",
+  "start_url": "./index.html",
+  "display": "standalone",
+  "background_color": "#f8fafc",
+  "theme_color": "#2563eb",
+  "description": "Sistema de Controle de Produção Diária",
+  "icons": [
+    {
+      "src": "https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
