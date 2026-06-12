@@ -210,7 +210,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL
+        // FUNÇÕES DO MODAL COM INFORMAÇÕES EXTRAS
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -236,6 +236,19 @@
                     const dados = doc.data();
                     const dataLog = dados['_dataSalvamento'] || '--/--/----';
                     
+                    // Extrai as informações extras do chamado
+                    const tipoServico = dados['Tipo de serviço'] || '';
+                    const branch = dados['Branch via argos'] || dados['Branch Via Argo'] || dados['Branch'] || '';
+                    
+                    let infoExtraHTML = '';
+                    if(tipoServico || branch) {
+                        infoExtraHTML = `<div class="flex flex-wrap gap-2 mb-3 mt-1">`;
+                        if(branch) infoExtraHTML += `<span class="flex items-center gap-1 text-[9.5px] font-bold text-slate-600 bg-slate-200/60 px-2 py-1 rounded"><i data-lucide="map-pin" class="w-3 h-3 text-slate-400"></i> ${branch}</span>`;
+                        if(tipoServico) infoExtraHTML += `<span class="flex items-center gap-1 text-[9.5px] font-bold text-slate-600 bg-slate-200/60 px-2 py-1 rounded"><i data-lucide="wrench" class="w-3 h-3 text-slate-400"></i> ${tipoServico}</span>`;
+                        infoExtraHTML += `</div>`;
+                    }
+                    
+                    // Monta as "etiquetas" de prévia dos seriais
                     let previewHTML = '';
                     camposSeriais.forEach(c => {
                         if (dados[c] && String(dados[c]).trim() !== '') {
@@ -249,7 +262,7 @@
                     lista.innerHTML += `
                         <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group gap-3">
                             <div class="flex-1 w-full">
-                                <div class="flex items-center justify-between w-full mb-2">
+                                <div class="flex items-center justify-between w-full mb-1">
                                     <p class="font-black text-slate-800 text-[14px] tracking-tight flex items-center gap-1.5">
                                         <i data-lucide="package" class="w-4 h-4 text-violet-500"></i> ${doc.id}
                                     </p>
@@ -257,7 +270,10 @@
                                         <i data-lucide="clock" class="w-3 h-3 text-slate-400"></i> Salvo em: ${dataLog}
                                     </div>
                                 </div>
-                                <div class="flex flex-wrap items-center w-full">
+                                
+                                ${infoExtraHTML}
+                                
+                                <div class="flex flex-wrap items-center w-full mt-1.5">
                                     ${previewHTML}
                                 </div>
                             </div>
