@@ -5,9 +5,6 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Produção Diária - PCP</title>
     
-    <link rel="manifest" href="manifest.json">
-    <meta name="theme-color" content="#2563eb">
-    
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/lucide@latest"></script>
     <script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
@@ -179,19 +176,6 @@
 
     <script>
         // ==========================================
-        // REGISTRO DO SERVICE WORKER (PWA APP)
-        // ==========================================
-        if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('./sw.js').then(reg => {
-                    reg.update(); // Força a busca por atualizações no sw
-                }).catch((err) => {
-                    console.log('SW Registration failed: ', err);
-                });
-            });
-        }
-
-        // ==========================================
         // INICIALIZAÇÃO DO CLOUD FIRESTORE
         // ==========================================
         const firebaseConfig = {
@@ -212,7 +196,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL
+        // FUNÇÕES DO MODAL COM LEITURA EXATA DO CARD E TAGS AGRUPADAS
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -331,7 +315,7 @@
         function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
         // ==========================================
-        // LÓGICA DO BOLSÃO NO FIRESTORE (LEITURA EXATA)
+        // LÓGICA DO BOLSÃO NO FIRESTORE
         // ==========================================
         function sanitizeForFirestore(obj) {
             if (!obj || typeof obj !== 'object') return obj;
@@ -355,18 +339,35 @@
             showLoading("Salvando no Firestore...");
             const dadosSeguros = sanitizeForFirestore(item);
             
-            // LÊ OS DADOS DIRETAMENTE DO CARD ATUAL (Aba Bolsões)
+            let cardOriginal = null;
+            const abasParaBuscar = ['tiago', 'alana', 'william', 'viviane', 'concluidos', 'etiquetas'];
+            
+            for (let aba of abasParaBuscar) {
+                if (store[aba]) {
+                    let encontrado = store[aba].find(x => x._id === id);
+                    if (encontrado) {
+                        cardOriginal = encontrado;
+                        break;
+                    }
+                }
+            }
+
             let foundBranch = '';
             let foundServico = '';
-            for (let k in item) {
-                let kLow = k.toLowerCase();
-                if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
-                if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = item[k];
+            let foundTitulo = item[item._titleField] || '';
+
+            if (cardOriginal) {
+                foundTitulo = cardOriginal[cardOriginal._titleField] || foundTitulo;
+                for (let k in cardOriginal) {
+                    let kLow = k.toLowerCase();
+                    if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = cardOriginal[k];
+                    if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = cardOriginal[k];
+                }
             }
             
             dadosSeguros['_branch_modal'] = foundBranch;
             dadosSeguros['_servico_modal'] = foundServico;
-            dadosSeguros['_titulo_modal'] = item[item._titleField] || '';
+            dadosSeguros['_titulo_modal'] = foundTitulo;
             
             const dataAtual = new Date();
             const diaMes = dataAtual.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
@@ -376,7 +377,7 @@
             db.collection("estoque_bolsoes").doc(nomeBolsao).set(dadosSeguros)
             .then(() => {
                 const idx = store.bolsoes.findIndex(x => x._id === id);
-                store.bolsoes.splice(idx, 1);
+                if (idx > -1) store.bolsoes.splice(idx, 1);
                 save(); render(); hideLoading();
             }).catch((error) => { hideLoading(); alert("Erro ao salvar no banco: " + error.message); });
         }
@@ -727,6 +728,7 @@
         }
         
         function updateStats() {
+            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
