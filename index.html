@@ -176,6 +176,17 @@
 
     <script>
         // ==========================================
+        // REMOÇÃO DO SERVICE WORKER (Desativa o Cache do PWA)
+        // ==========================================
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for(let registration of registrations) {
+                    registration.unregister();
+                }
+            });
+        }
+
+        // ==========================================
         // INICIALIZAÇÃO DO CLOUD FIRESTORE
         // ==========================================
         const firebaseConfig = {
@@ -196,7 +207,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL COM LEITURA EXATA DO CARD E TAGS AGRUPADAS
+        // FUNÇÕES DO MODAL COM EDIÇÃO DIRETA
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -256,12 +267,17 @@
                                     </div>
                                 </div>
                             </div>
+                            
                             <div class="flex flex-wrap items-center w-full mt-1 border-t border-slate-200/50 pt-2">
                                 ${previewHTML}
                             </div>
+                            
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar Nome do Bolsão">
                                     <i data-lucide="copy" class="w-3 h-3"></i> Copiar ID
+                                </button>
+                                <button onclick="editarBolsaoNuvem('${doc.id}')" class="flex items-center justify-center bg-amber-100 text-amber-600 hover:bg-amber-500 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm" title="Editar Seriais deste Bolsão">
+                                    <i data-lucide="pencil" class="w-3 h-3"></i>
                                 </button>
                                 <button onclick="excluirBolsaoNuvem('${doc.id}')" class="flex items-center justify-center bg-red-100 text-red-600 hover:bg-red-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm" title="Excluir Permanentemente">
                                     <i data-lucide="trash-2" class="w-3 h-3"></i>
@@ -275,6 +291,86 @@
                 lista.innerHTML = `<div class="text-center text-red-500 py-10 font-bold text-xs">Erro de conexão: ${error.message}</div>`;
             });
         }
+
+        // --- SISTEMA DE EDIÇÃO NA NUVEM ---
+        function editarBolsaoNuvem(id) {
+            showLoading("Carregando para edição...");
+            db.collection("estoque_bolsoes").doc(id).get().then((doc) => {
+                if (doc.exists) {
+                    const dados = doc.data();
+                    renderModalEdicao(id, dados);
+                }
+                hideLoading();
+            }).catch(err => {
+                hideLoading();
+                alert("Erro ao abrir edição: " + err.message);
+            });
+        }
+
+        function renderModalEdicao(id, dados) {
+            const lista = document.getElementById('cloud-modal-list');
+            
+            let inputsHTML = '';
+            camposSeriais.forEach(c => {
+                let val = dados[c] || '';
+                // Cria inputs para todos os campos de serial, substituindo espaços no ID para não quebrar
+                inputsHTML += `
+                    <div class="mb-3">
+                        <label class="block text-[8px] font-bold text-slate-400 uppercase mb-1">${c}</label>
+                        <input type="text" id="edit-nuvem-${c.replace(/\s/g, '')}" value="${val}" class="w-full border border-slate-300 rounded-lg px-3 py-2 text-xs font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white transition-all shadow-sm">
+                    </div>
+                `;
+            });
+
+            lista.innerHTML = `
+                <div class="bg-blue-50 p-5 rounded-2xl border border-blue-200 shadow-inner">
+                    <div class="flex justify-between items-center mb-5 pb-3 border-b border-blue-200/60">
+                        <h4 class="font-black text-blue-800 uppercase tracking-tight flex items-center gap-2">
+                            <i data-lucide="pencil" class="w-4 h-4"></i> Editando Bolsão: ${id}
+                        </h4>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-x-4">
+                        ${inputsHTML}
+                    </div>
+                    
+                    <div class="flex justify-end gap-2 mt-2 pt-4 border-t border-blue-200/60">
+                        <button onclick="abrirEstoqueNuvem()" class="px-5 py-2.5 bg-white hover:bg-slate-100 border border-slate-200 text-slate-600 rounded-xl text-[10px] font-bold uppercase transition-colors shadow-sm">Cancelar</button>
+                        <button onclick="salvarEdicaoNuvem('${id}')" class="px-5 py-2.5 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-[10px] font-black uppercase transition-colors shadow-md flex items-center gap-1.5"><i data-lucide="save" class="w-3.5 h-3.5"></i> Salvar Edição</button>
+                    </div>
+                </div>
+            `;
+            lucide.createIcons();
+        }
+
+        function salvarEdicaoNuvem(id) {
+            let novosDados = {};
+            
+            // Pega o valor digitado de todos os campos gerados
+            camposSeriais.forEach(c => {
+                let inputEl = document.getElementById(`edit-nuvem-${c.replace(/\s/g, '')}`);
+                if(inputEl) {
+                    novosDados[c] = inputEl.value.trim();
+                }
+            });
+
+            // Atualiza a flag de data de salvamento para mostrar que foi modificado
+            const dataAtual = new Date();
+            const diaMes = dataAtual.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
+            const horaMinuto = dataAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
+            novosDados['_dataSalvamento'] = `${diaMes} às ${horaMinuto} (Editado)`;
+
+            showLoading("Salvando edições na Nuvem...");
+            
+            db.collection("estoque_bolsoes").doc(id).update(novosDados).then(() => {
+                hideLoading();
+                abrirEstoqueNuvem(); // Recarrega a lista do modal para mostrar os dados novos
+            }).catch(err => {
+                hideLoading();
+                alert("Erro ao salvar edição: " + err.message);
+            });
+        }
+        // ------------------------------------------
 
         function fecharEstoqueNuvem() { document.getElementById('cloud-modal-overlay').style.display = 'none'; }
         function copiarIDBolsao(id) { navigator.clipboard.writeText(id).then(() => { alert(`✅ Código '${id}' copiado! Você pode colar ele na caixa de Puxar Bolsão.`); }); }
@@ -728,7 +824,6 @@
         }
         
         function updateStats() {
-            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
