@@ -210,7 +210,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL COM INFORMAÇÕES EXTRAS
+        // FUNÇÕES DO MODAL COM BUSCA INTELIGENTE
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -236,9 +236,21 @@
                     const dados = doc.data();
                     const dataLog = dados['_dataSalvamento'] || '--/--/----';
                     
-                    // Extrai as informações extras do chamado
-                    const tipoServico = dados['Tipo de serviço'] || '';
-                    const branch = dados['Branch via argos'] || dados['Branch Via Argo'] || dados['Branch'] || '';
+                    // BUSCA INTELIGENTE: Varre as chaves ignorando maiúsculas e minúsculas
+                    let tipoServico = '';
+                    let branch = '';
+                    
+                    for (let key in dados) {
+                        let kLower = key.toLowerCase();
+                        // Procura por "tipo de serviço", "serviço" ou "servico"
+                        if (kLower.includes('tipo de serviço') || kLower === 'serviço' || kLower.includes('servico')) {
+                            tipoServico = dados[key];
+                        }
+                        // Procura por "branch", "argos", ou "cliente"
+                        if (kLower.includes('branch') || kLower.includes('argos') || kLower.includes('cliente')) {
+                            branch = dados[key];
+                        }
+                    }
                     
                     let infoExtraHTML = '';
                     if(tipoServico || branch) {
@@ -716,25 +728,5 @@
         }
         
         function updateStats() {
-            document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
-            document.getElementById('stat-done').innerText = store.concluidos.length;
-        }
-        
-        function filterCards() {
-            const q = document.getElementById('search-input').value.toLowerCase();
-            let visibleCount = 0;
-            document.querySelectorAll('.card-animation').forEach(c => {
-                const isMatch = c.innerText.toLowerCase().includes(q);
-                c.style.display = isMatch ? 'block' : 'none';
-                if (isMatch) visibleCount++; 
-            });
-            if (q.trim() !== '') {
-                if (['tiago', 'alana', 'william', 'viviane', 'bolsoes'].includes(currentTab)) { document.getElementById('stat-total').innerText = visibleCount; } 
-                else if (currentTab === 'concluidos') { document.getElementById('stat-done').innerText = visibleCount; }
-            } else { updateStats(); }
-        }
-
-        window.onload = () => { render(); updateStats(); };
-    </script>
-</body>
-</html>
+            // Contagem do Firestore é feita por um listener separado
+            document.getElementById('stat-total').innerText = store.tiago.length + store.
