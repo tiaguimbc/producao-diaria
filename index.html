@@ -273,7 +273,7 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother">
+                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother (29x30mm)">
                                     <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
                                 </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
@@ -295,8 +295,7 @@
             });
         }
 
-        // --- SISTEMA DE IMPRESSÃO BROTHER QL-800 ---
-        // COM POSICIONAMENTO ABSOLUTO PARA EVITAR ERRO DE QUEBRA DE PÁGINA
+        // --- SISTEMA DE IMPRESSÃO BROTHER QL-800 (29mm x 30mm) COMPACTA ---
         function imprimirEtiquetaKit(id) {
             showLoading("Gerando Etiqueta...");
             db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
@@ -323,105 +322,128 @@
                         <head>
                             <title>Etiqueta Kit ${id}</title>
                             <style>
-                                /* Define o tamanho do papel virtual. Colocamos 50mm para garantir o corte. */
+                                /* Ajuste cirurgico para 29x30mm */
                                 @page { 
                                     margin: 0; 
-                                    size: 29mm 50mm; 
+                                    size: 29mm 30mm; 
                                 }
                                 body {
                                     margin: 0;
                                     padding: 0;
                                     width: 29mm;
-                                    height: 50mm;
+                                    height: 30mm;
                                     background: white;
                                     overflow: hidden;
-                                    position: relative; /* Fundamental para o alinhamento absoluto funcionar */
+                                    position: relative;
                                     font-family: 'Arial', sans-serif;
                                 }
-                                /* A "Caixa Magica" que vai centralizar perfeitamente */
+                                /* Caixa mágica giratória adaptada para o quadrado 29x30 */
                                 .rotator-box {
                                     position: absolute;
                                     top: 50%;
                                     left: 50%;
-                                    width: 48mm;  /* Ligeiramente menor que os 50mm para não esbarrar na margem */
-                                    height: 27mm; /* Ligeiramente menor que os 29mm da fita */
-                                    transform: translate(-50%, -50%) rotate(90deg); /* Centraliza e gira exatamente pelo meio */
+                                    width: 28mm;  /* Quase os 30mm de comprimento da fita */
+                                    height: 27mm; /* Quase os 29mm de altura da fita */
+                                    transform: translate(-50%, -50%) rotate(90deg);
                                     display: flex;
                                     flex-direction: column;
                                     justify-content: flex-start;
                                     box-sizing: border-box;
+                                    padding: 0.5mm;
                                 }
                                 
-                                /* --- REPLICANDO O UI DA TELA --- */
+                                /* CABEÇALHO COMPACTO */
                                 .header {
                                     display: flex;
                                     align-items: center;
-                                    gap: 1mm;
-                                    margin-bottom: 1.5mm;
-                                }
-                                .icon-box {
-                                    color: #8b5cf6; 
-                                    display: flex;
+                                    justify-content: center;
+                                    gap: 0.5mm;
+                                    width: 100%;
+                                    margin-bottom: 0.8mm;
                                 }
                                 .kit-name {
-                                    font-size: 8pt;
+                                    font-size: 5.5pt;
                                     font-weight: 900;
                                     color: #1e293b;
                                     text-transform: uppercase;
+                                    white-space: nowrap;
                                 }
                                 .blue-badge {
                                     background-color: #dbeafe;
                                     color: #1d4ed8;
-                                    padding: 0.5mm 1.5mm;
-                                    border-radius: 1mm;
-                                    font-size: 5.5pt;
+                                    padding: 0.2mm 0.8mm;
+                                    border-radius: 0.5mm;
+                                    font-size: 3.5pt;
                                     font-weight: 900;
                                     border: 0.5px solid #bfdbfe;
                                 }
                                 
+                                /* SEÇÃO DO MEIO (QR CODE + TAGS) LADO A LADO */
+                                .middle-section {
+                                    display: flex;
+                                    flex-direction: row;
+                                    width: 100%;
+                                    gap: 1mm;
+                                    align-items: center;
+                                    margin-bottom: 0.5mm;
+                                }
+                                .qr-code { 
+                                    width: 11mm; 
+                                    height: 11mm; 
+                                    flex-shrink: 0;
+                                }
                                 .tags-container {
                                     display: flex;
-                                    flex-wrap: wrap;
-                                    gap: 1mm;
-                                    margin-bottom: 1.5mm;
+                                    flex-direction: column;
+                                    gap: 0.5mm;
+                                    flex-grow: 1;
+                                    overflow: hidden;
                                 }
                                 .gray-badge {
                                     background-color: #f8fafc;
                                     border: 0.5px solid #e2e8f0;
                                     color: #475569;
-                                    padding: 0.5mm 1mm;
-                                    border-radius: 1mm;
-                                    font-size: 4.5pt;
+                                    padding: 0.3mm 0.8mm;
+                                    border-radius: 0.5mm;
+                                    font-size: 3.2pt;
                                     font-weight: bold;
                                     display: flex;
                                     align-items: center;
                                     gap: 0.5mm;
+                                    line-height: 1;
+                                    white-space: nowrap;
+                                    overflow: hidden;
+                                    text-overflow: ellipsis;
                                 }
 
+                                /* SERIAIS COMPACTOS */
                                 .seriais-container {
                                     display: flex;
                                     flex-wrap: wrap;
-                                    gap: 1mm;
+                                    gap: 0.5mm;
                                     border-top: 0.5px solid #e2e8f0;
-                                    padding-top: 1mm;
-                                    margin-top: auto;
+                                    padding-top: 0.5mm;
+                                    width: 100%;
+                                    justify-content: center;
                                 }
                                 .serial-badge {
-                                    font-size: 4.5pt;
+                                    font-size: 3.2pt;
                                     color: #64748b;
                                     border: 0.5px solid #e2e8f0;
-                                    padding: 0.5mm 1mm;
+                                    padding: 0.2mm 0.8mm;
                                     border-radius: 0.5mm;
                                     background-color: #ffffff;
+                                    line-height: 1;
                                 }
                                 .serial-badge b {
                                     color: #1e293b;
                                 }
                                 
-                                /* Ícones SVGs */
+                                /* Ícones SVGs minúsculos */
                                 svg {
-                                    width: 2.5mm;
-                                    height: 2.5mm;
+                                    width: 1.5mm;
+                                    height: 1.5mm;
+                                    flex-shrink: 0;
                                 }
                             </style>
                         </head>
@@ -429,29 +451,30 @@
                             <div class="rotator-box">
                                 
                                 <div class="header">
-                                    <div class="icon-box">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"></path><polyline points="3.27 6.96 12 12.01 20.73 6.96"></polyline><line x1="12" y1="22.08" x2="12" y2="12"></line></svg>
-                                    </div>
                                     <div class="kit-name">${id}</div>
                                     ${tituloChamado ? `<div class="blue-badge">${tituloChamado}</div>` : ''}
                                 </div>
                                 
-                                <div class="tags-container">
-                                    ${branch ? `
-                                    <div class="gray-badge">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
-                                        ${branch}
-                                    </div>` : ''}
-                                    ${tipoServico ? `
-                                    <div class="gray-badge">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
-                                        ${tipoServico}
-                                    </div>` : ''}
-                                    ${dataLog ? `
-                                    <div class="gray-badge">
-                                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                        ${dataLog}
-                                    </div>` : ''}
+                                <div class="middle-section">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}" class="qr-code">
+                                    
+                                    <div class="tags-container">
+                                        ${branch ? `
+                                        <div class="gray-badge">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 10c0 7-9 13-9 13s-9-6-9-13a9 9 0 0 1 18 0z"></path><circle cx="12" cy="10" r="3"></circle></svg>
+                                            ${branch}
+                                        </div>` : ''}
+                                        ${tipoServico ? `
+                                        <div class="gray-badge">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z"></path></svg>
+                                            ${tipoServico}
+                                        </div>` : ''}
+                                        ${dataLog ? `
+                                        <div class="gray-badge">
+                                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
+                                            ${dataLog}
+                                        </div>` : ''}
+                                    </div>
                                 </div>
                                 
                                 <div class="seriais-container">
@@ -497,6 +520,7 @@
             let inputsHTML = '';
             camposSeriais.forEach(c => {
                 let val = dados[c] || '';
+                // Cria inputs para todos os campos de serial, substituindo espaços no ID para não quebrar
                 inputsHTML += `
                     <div class="mb-3">
                         <label class="block text-[8px] font-bold text-slate-400 uppercase mb-1">${c}</label>
