@@ -207,7 +207,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL COM EDIÇÃO
+        // FUNÇÕES DO MODAL (COM BOTÃO DE IMPRIMIR)
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -273,6 +273,9 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
+                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother (50x29mm)">
+                                    <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
+                                </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
                                     <i data-lucide="copy" class="w-3 h-3"></i> Copiar ID
                                 </button>
@@ -292,6 +295,131 @@
             });
         }
 
+        // --- SISTEMA DE IMPRESSÃO BROTHER QL-800 ---
+        // Padrão: 50mm de comprimento, 29mm de largura (Fita contínua)
+        function imprimirEtiquetaKit(id) {
+            showLoading("Gerando Etiqueta...");
+            db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
+                hideLoading();
+                if (docSnapshot.exists) {
+                    const dados = docSnapshot.data();
+                    
+                    const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
+                    const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
+
+                    // Criação da janela virtual com a formatação CSS para Rotação Absoluta
+                    // Isso garante que a impressão saia no formato Paisagem, ignorando as falhas do Chrome
+                    const janelaImpressao = window.open('', '', 'width=400,height=600');
+                    janelaImpressao.document.write(`
+                        <html>
+                        <head>
+                            <title>Etiqueta Kit ${id}</title>
+                            <style>
+                                /* Define o tamanho do papel. A fita tem 29mm de largura. Mandamos cortar em 50mm. */
+                                @page { 
+                                    margin: 0; 
+                                    size: 29mm 50mm; 
+                                }
+                                body {
+                                    margin: 0;
+                                    padding: 0;
+                                    width: 29mm;
+                                    height: 50mm;
+                                    background: white;
+                                    overflow: hidden;
+                                    position: relative;
+                                    font-family: 'Arial', sans-serif;
+                                }
+                                /* O Container Principal que sofre a Rotação para ficar Paisagem */
+                                .label-wrapper {
+                                    position: absolute;
+                                    top: 50%;
+                                    left: 50%;
+                                    width: 48mm;  /* 50mm - margens de segurança */
+                                    height: 27mm; /* 29mm - margens de segurança */
+                                    transform: translate(-50%, -50%) rotate(90deg); /* Centraliza e Gira 90 Graus */
+                                    display: flex;
+                                    flex-direction: row;
+                                    align-items: center;
+                                    justify-content: space-between;
+                                    box-sizing: border-box;
+                                    padding: 1mm;
+                                }
+                                /* Coluna Esquerda: QR Code */
+                                .qr-col {
+                                    width: 16mm;
+                                    display: flex;
+                                    justify-content: center;
+                                    align-items: center;
+                                    margin-right: 2mm;
+                                }
+                                .qr-code { 
+                                    width: 16mm; 
+                                    height: 16mm; 
+                                }
+                                /* Coluna Direita: Textos */
+                                .text-col {
+                                    flex: 1;
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: center;
+                                    text-align: left;
+                                }
+                                .title { 
+                                    font-size: 11pt; 
+                                    font-weight: 900; 
+                                    margin-bottom: 2px; 
+                                    text-transform: uppercase; 
+                                    line-height: 1;
+                                    color: #000;
+                                }
+                                .service { 
+                                    font-size: 7pt; 
+                                    font-weight: bold; 
+                                    margin-bottom: 2px; 
+                                    border-bottom: 1px dashed #000; 
+                                    padding-bottom: 2px; 
+                                    line-height: 1.1;
+                                    color: #000;
+                                }
+                                .branch { 
+                                    font-size: 8pt; 
+                                    font-weight: 800; 
+                                    line-height: 1.1;
+                                    color: #000;
+                                }
+                            </style>
+                        </head>
+                        <body>
+                            <div class="label-wrapper">
+                                <div class="qr-col">
+                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}" class="qr-code">
+                                </div>
+                                <div class="text-col">
+                                    <div class="title">${id}</div>
+                                    <div class="service">${tipoServico}</div>
+                                    <div class="branch">${branch}</div>
+                                </div>
+                            </div>
+                        </body>
+                        </html>
+                    `);
+                    janelaImpressao.document.close();
+                    janelaImpressao.focus();
+                    
+                    // Aguarda a imagem carregar antes de abrir o diálogo de impressão
+                    setTimeout(() => {
+                        janelaImpressao.print();
+                        janelaImpressao.close();
+                    }, 500);
+                }
+            }).catch(err => {
+                hideLoading();
+                alert("Erro ao ler dados para impressão: " + err.message);
+            });
+        }
+
+        // --- SISTEMA DE EDIÇÃO NA NUVEM ---
         function editarBolsaoNuvem(id) {
             showLoading("Carregando para edição...");
             db.collection("estoque_bolsoes").doc(id).get().then((doc) => {
@@ -312,6 +440,7 @@
             let inputsHTML = '';
             camposSeriais.forEach(c => {
                 let val = dados[c] || '';
+                // Cria inputs para todos os campos de serial, substituindo espaços no ID para não quebrar
                 inputsHTML += `
                     <div class="mb-3">
                         <label class="block text-[8px] font-bold text-slate-400 uppercase mb-1">${c}</label>
