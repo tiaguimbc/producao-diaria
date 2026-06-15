@@ -207,7 +207,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL
+        // FUNÇÕES DO MODAL (COM BOTÃO DE IMPRIMIR)
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -339,28 +339,28 @@
                 <head>
                     <title>Etiqueta Kit ${titulo}</title>
                     <style>
-                        /* Força a remoção das margens de página do Chrome */
+                        /* Força o papel para 29x42 conforme selecionado no Chrome */
                         @page { 
                             margin: 0 !important; 
-                            size: 29mm 36mm; 
+                            size: 29mm 42mm; 
                         }
                         body {
                             margin: 0 !important;
                             padding: 0 !important;
                             width: 29mm;
-                            height: 36mm;
+                            height: 42mm;
                             background: white;
                             overflow: hidden;
                             position: relative;
                             font-family: 'Arial', sans-serif;
                         }
-                        /* O container é girado pelo canto superior esquerdo para não esmagar no meio */
+                        /* Container centralizado usando os 42mm de espaço disponível */
                         .label-wrapper {
                             position: absolute;
-                            top: 0;
-                            left: 28.5mm; /* Move o eixo para a borda após girar */
-                            width: 36mm;  /* A altura vira a largura */
-                            height: 28mm; /* A largura vira a altura */
+                            top: 1mm;
+                            left: 28mm; 
+                            width: 40mm;  /* Usa quase toda a extensão dos 42mm */
+                            height: 27mm; /* Usa quase toda a altura dos 29mm */
                             transform-origin: top left;
                             transform: rotate(90deg); 
                             display: flex;
@@ -368,7 +368,6 @@
                             align-items: center;
                             justify-content: flex-start;
                             box-sizing: border-box;
-                            padding: 1.5mm;
                         }
                         .qr-col {
                             width: 13mm;
@@ -391,15 +390,16 @@
                             text-align: left;
                             overflow: hidden;
                         }
+                        /* O word-wrap permite que o texto longo pule de linha sem ser cortado */
                         .title { 
                             font-size: 8.5pt; 
                             font-weight: 900; 
                             margin-bottom: 1mm; 
                             text-transform: uppercase; 
-                            line-height: 1;
+                            line-height: 1.1;
                             color: #000;
                             letter-spacing: -0.2px;
-                            white-space: nowrap;
+                            word-wrap: break-word;
                         }
                         .service { 
                             font-size: 6.5pt; 
@@ -409,14 +409,14 @@
                             padding-bottom: 1mm; 
                             line-height: 1.1;
                             color: #000;
-                            white-space: nowrap;
+                            word-wrap: break-word;
                         }
                         .branch { 
                             font-size: 7.5pt; 
                             font-weight: 800; 
                             line-height: 1.1;
                             color: #000;
-                            white-space: nowrap;
+                            word-wrap: break-word;
                         }
                     </style>
                 </head>
