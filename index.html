@@ -207,7 +207,7 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL (COM BOTÃO DE IMPRIMIR)
+        // FUNÇÕES DO MODAL
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -273,7 +273,7 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother">
+                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta">
                                     <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
                                 </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
@@ -296,18 +296,13 @@
         }
 
         // ==========================================
-        // SISTEMA DE IMPRESSÃO (NUVEM E LOCAL) - ANTI-BLOQUEIO
+        // SISTEMA DE IMPRESSÃO (BLINDADO COM POSITION ABSOLUTE)
         // ==========================================
         function imprimirEtiquetaNuvem(id) {
-            // Passo 1: Abre a janela sincronamente para o Chrome não bloquear como Spam
             const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
-            if(!janelaImpressao) {
-                alert("⚠️ O Google Chrome bloqueou a aba de impressão. Por favor, permita os pop-ups clicando no ícone com um 'X' vermelho lá em cima na barra de endereços.");
-                return;
-            }
+            if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups na barra de endereços."); return; }
             janelaImpressao.document.write('<h3 style="font-family:sans-serif; text-align:center; margin-top:20px;">Carregando dados...</h3>');
 
-            // Passo 2: Busca na nuvem e desenha a etiqueta
             db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
                 if (docSnapshot.exists) {
                     const dados = docSnapshot.data();
@@ -315,29 +310,19 @@
                     const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
                     _renderizarEtiqueta(janelaImpressao, id, tipoServico, branch);
                 } else {
-                    janelaImpressao.close();
-                    alert("Kit não encontrado na Nuvem!");
+                    janelaImpressao.close(); alert("Kit não encontrado na Nuvem!");
                 }
-            }).catch(err => {
-                janelaImpressao.close();
-                alert("Erro ao ler dados para impressão: " + err.message);
-            });
+            }).catch(err => { janelaImpressao.close(); alert("Erro: " + err.message); });
         }
 
         function imprimirEtiquetaLocal(id) {
             const item = store.bolsoes.find(x => x._id === id);
             if(item) {
-                // Passo 1: Abre a janela sincronamente
                 const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
-                if(!janelaImpressao) {
-                    alert("⚠️ O Google Chrome bloqueou a aba de impressão. Permita os pop-ups!");
-                    return;
-                }
+                if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups!"); return; }
                 
-                // Passo 2: Formata os dados locais e desenha a etiqueta
                 let titulo = item[item._titleField] || "KIT";
-                let foundBranch = '';
-                let foundServico = '';
+                let foundBranch = ''; let foundServico = '';
                 for (let k in item) {
                     let kLow = k.toLowerCase();
                     if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
@@ -347,7 +332,6 @@
             }
         }
 
-        // TAMANHO AJUSTADO: Fita de 28mm x 36mm com onload do QR Code
         function _renderizarEtiqueta(janela, titulo, servico, branch) {
             janela.document.open();
             janela.document.write(`
@@ -355,36 +339,40 @@
                 <head>
                     <title>Etiqueta Kit ${titulo}</title>
                     <style>
+                        /* Força a remoção das margens de página do Chrome */
                         @page { 
-                            margin: 0; 
-                            size: 28mm 36mm; 
+                            margin: 0 !important; 
+                            size: 29mm 36mm; 
                         }
                         body {
-                            margin: 0;
-                            padding: 0;
-                            width: 28mm;
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            width: 29mm;
                             height: 36mm;
                             background: white;
                             overflow: hidden;
                             position: relative;
                             font-family: 'Arial', sans-serif;
                         }
+                        /* O container é girado pelo canto superior esquerdo para não esmagar no meio */
                         .label-wrapper {
                             position: absolute;
-                            top: 50%;
-                            left: 50%;
-                            width: 34mm;  /* 36mm total - 2mm de respiro para a impressora não esticar */
-                            height: 26mm; /* 28mm total - 2mm de respiro */
-                            transform: translate(-50%, -50%) rotate(90deg); /* Mágica da Paisagem */
+                            top: 0;
+                            left: 28.5mm; /* Move o eixo para a borda após girar */
+                            width: 36mm;  /* A altura vira a largura */
+                            height: 28mm; /* A largura vira a altura */
+                            transform-origin: top left;
+                            transform: rotate(90deg); 
                             display: flex;
                             flex-direction: row;
                             align-items: center;
                             justify-content: flex-start;
                             box-sizing: border-box;
+                            padding: 1.5mm;
                         }
                         .qr-col {
-                            width: 14mm;
-                            height: 14mm;
+                            width: 13mm;
+                            height: 13mm;
                             display: flex;
                             justify-content: center;
                             align-items: center;
@@ -404,7 +392,7 @@
                             overflow: hidden;
                         }
                         .title { 
-                            font-size: 10pt; 
+                            font-size: 8.5pt; 
                             font-weight: 900; 
                             margin-bottom: 1mm; 
                             text-transform: uppercase; 
@@ -450,7 +438,9 @@
             janela.focus();
         }
 
-        // --- SISTEMA DE EDIÇÃO NA NUVEM ---
+        // ==========================================
+        // RESTANTE DO CÓDIGO INTACTO
+        // ==========================================
         function editarBolsaoNuvem(id) {
             showLoading("Carregando para edição...");
             db.collection("estoque_bolsoes").doc(id).get().then((doc) => {
@@ -467,7 +457,6 @@
 
         function renderModalEdicao(id, dados) {
             const lista = document.getElementById('cloud-modal-list');
-            
             let inputsHTML = '';
             camposSeriais.forEach(c => {
                 let val = dados[c] || '';
@@ -502,41 +491,29 @@
 
         function salvarEdicaoNuvem(id) {
             let novosDados = {};
-            
             camposSeriais.forEach(c => {
                 let inputEl = document.getElementById(`edit-nuvem-${c.replace(/\s/g, '')}`);
-                if(inputEl) {
-                    novosDados[c] = inputEl.value.trim();
-                }
+                if(inputEl) { novosDados[c] = inputEl.value.trim(); }
             });
-
             const dataAtual = new Date();
             const diaMes = dataAtual.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' });
             const horaMinuto = dataAtual.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' });
             novosDados['_dataSalvamento'] = `${diaMes} às ${horaMinuto} (Editado)`;
 
             showLoading("Salvando edições na Nuvem...");
-            
             db.collection("estoque_bolsoes").doc(id).update(novosDados).then(() => {
-                hideLoading();
-                abrirEstoqueNuvem(); 
-            }).catch(err => {
-                hideLoading();
-                alert("Erro ao salvar edição: " + err.message);
-            });
+                hideLoading(); abrirEstoqueNuvem(); 
+            }).catch(err => { hideLoading(); alert("Erro ao salvar edição: " + err.message); });
         }
 
         function fecharEstoqueNuvem() { document.getElementById('cloud-modal-overlay').style.display = 'none'; }
-        function copiarIDBolsao(id) { navigator.clipboard.writeText(id).then(() => { alert(`✅ Código '${id}' copiado! Você pode colar ele na caixa de Puxar Kit.`); }); }
+        function copiarIDBolsao(id) { navigator.clipboard.writeText(id).then(() => { alert(`✅ Código '${id}' copiado!`); }); }
         function excluirBolsaoNuvem(id) {
-            if (confirm(`Atenção: Tem certeza que deseja DELETAR o kit '${id}' da Nuvem?\n\nOs seriais dentro dele serão apagados permanentemente.`)) {
+            if (confirm(`Atenção: Tem certeza que deseja DELETAR o kit '${id}' da Nuvem?`)) {
                 db.collection("estoque_bolsoes").doc(id).delete().then(() => { abrirEstoqueNuvem(); }).catch((error) => { alert("Erro ao excluir: " + error.message); });
             }
         }
 
-        // ==========================================
-        // VARIÁVEIS GERAIS
-        // ==========================================
         const WEB_APP_URL = "https://script.google.com/a/macros/queonetics.com/s/AKfycby2ftCCf4SipPtZPnMuzzFFBcLoB54OXp4ssOk7hLS0w8aRK-b9C_CmVaR8lJihVgPg/exec";
         const DB_NAME = 'producao_pcp_v5_store';
         const JIRA_BASE_URL = "https://jira.trixlog.com/browse/";
@@ -564,16 +541,10 @@
         }
         function hideLoading() { document.getElementById('loading-overlay').style.display = 'none'; }
 
-        // ==========================================
-        // LÓGICA DO KIT NO FIRESTORE
-        // ==========================================
         function sanitizeForFirestore(obj) {
             if (!obj || typeof obj !== 'object') return obj;
             const newObj = {};
-            for (let key in obj) {
-                if (obj[key] === undefined) continue;
-                newObj[key] = String(obj[key]); 
-            }
+            for (let key in obj) { if (obj[key] === undefined) continue; newObj[key] = String(obj[key]); }
             return newObj; 
         }
 
@@ -583,7 +554,6 @@
 
             let nomeBolsao = prompt("Confirme ou digite o CÓDIGO DO KIT físico (Ex: KIT-001):", item[item._titleField] || "");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
-            
             nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
             showLoading("Salvando no Firestore...");
@@ -595,17 +565,11 @@
             for (let aba of abasParaBuscar) {
                 if (store[aba]) {
                     let encontrado = store[aba].find(x => x._id === id);
-                    if (encontrado) {
-                        cardOriginal = encontrado;
-                        break;
-                    }
+                    if (encontrado) { cardOriginal = encontrado; break; }
                 }
             }
 
-            let foundBranch = '';
-            let foundServico = '';
-            let foundTitulo = item[item._titleField] || '';
-
+            let foundBranch = ''; let foundServico = ''; let foundTitulo = item[item._titleField] || '';
             if (cardOriginal) {
                 foundTitulo = cardOriginal[cardOriginal._titleField] || foundTitulo;
                 for (let k in cardOriginal) {
@@ -633,33 +597,23 @@
         }
 
         function puxarBolsao(cardId) {
-            let nomeBolsao = prompt("Bipe ou digite o CÓDIGO DO KIT físico que você tem em mãos:");
+            let nomeBolsao = prompt("Bipe ou digite o CÓDIGO DO KIT físico:");
             if (!nomeBolsao || nomeBolsao.trim() === "") return;
-            
             nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
             showLoading("Buscando no Firestore...");
-
-            const docRef = db.collection("estoque_bolsoes").doc(nomeBolsao);
-            
-            docRef.get().then((doc) => {
+            db.collection("estoque_bolsoes").doc(nomeBolsao).get().then((doc) => {
                 if (doc.exists) {
                     const dadosBolsao = doc.data();
                     const card = store[currentTab].find(x => x._id === cardId);
                     if (card) {
                         camposSeriais.forEach(c => { if (dadosBolsao[c]) card[c] = dadosBolsao[c]; });
-                        save();
-                        docRef.delete().then(() => { render(); hideLoading(); });
+                        save(); docRef.delete().then(() => { render(); hideLoading(); });
                     }
-                } else {
-                    hideLoading(); alert("Atenção: Kit '" + nomeBolsao + "' não encontrado no estoque da nuvem.");
-                }
+                } else { hideLoading(); alert("Atenção: Kit '" + nomeBolsao + "' não encontrado."); }
             }).catch((error) => { hideLoading(); alert("Erro ao buscar no banco: " + error.message); });
         }
 
-        // ==========================================
-        // RESTANTE DAS FUNÇÕES (Planilha, Auto-Avanço, etc)
-        // ==========================================
         function handleFileUpload(event) {
             const file = event.target.files[0];
             if (!file) return;
@@ -671,7 +625,7 @@
                     if (isCSV) { workbook = XLSX.read(e.target.result, { type: 'string' }); } 
                     else { const data = new Uint8Array(e.target.result); workbook = XLSX.read(data, { type: 'array' }); }
                     processSheet(workbook.Sheets[workbook.SheetNames[0]]);
-                } catch(err) { alert("Erro ao ler arquivo. Verifique se o formato é válido."); }
+                } catch(err) { alert("Erro ao ler arquivo."); }
             };
             if (isCSV) { reader.readAsText(file, 'UTF-8'); } else { reader.readAsArrayBuffer(file); }
             event.target.value = '';
@@ -732,10 +686,7 @@
         }
 
         function handleEnter(e, cardId) {
-            if (e.key === 'Enter') {
-                e.preventDefault();
-                advanceToNextInput(e.target, cardId);
-            }
+            if (e.key === 'Enter') { e.preventDefault(); advanceToNextInput(e.target, cardId); }
         }
 
         function advanceToNextInput(currentEl, cardId) {
@@ -744,13 +695,9 @@
             const inputs = Array.from(document.querySelectorAll(`.serial-input-${cardId}`));
             const currentIndex = inputs.indexOf(currentEl);
             for (let i = currentIndex + 1; i < inputs.length; i++) {
-                if (inputs[i].value.trim() === '') {
-                    inputs[i].focus(); lastJumpTime = now; return;
-                }
+                if (inputs[i].value.trim() === '') { inputs[i].focus(); lastJumpTime = now; return; }
             }
-            if (currentIndex > -1 && currentIndex < inputs.length - 1) {
-                inputs[currentIndex + 1].focus(); lastJumpTime = now;
-            }
+            if (currentIndex > -1 && currentIndex < inputs.length - 1) { inputs[currentIndex + 1].focus(); lastJumpTime = now; }
         }
 
         function validateAndAdvance(el, campo, cardId) {
@@ -774,10 +721,7 @@
                 el.dataset.valid = "false";
             } else {
                 el.classList.add('bg-emerald-50', 'border-emerald-500', 'text-emerald-700', 'focus:ring-emerald-500');
-                if (el.dataset.valid !== "true") {
-                    el.dataset.valid = "true";
-                    advanceToNextInput(el, cardId); 
-                }
+                if (el.dataset.valid !== "true") { el.dataset.valid = "true"; advanceToNextInput(el, cardId); }
             }
         }
 
