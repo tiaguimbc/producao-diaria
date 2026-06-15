@@ -273,7 +273,7 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother (50x29mm)">
+                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother">
                                     <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
                                 </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
@@ -295,128 +295,149 @@
             });
         }
 
-        // --- SISTEMA DE IMPRESSÃO BROTHER QL-800 ---
-        // Padrão: 50mm de comprimento, 29mm de largura (Fita contínua)
-        function imprimirEtiquetaKit(id) {
+        // ==========================================
+        // SISTEMA DE IMPRESSÃO (NUVEM E LOCAL)
+        // ==========================================
+        function imprimirEtiquetaNuvem(id) {
             showLoading("Gerando Etiqueta...");
             db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
-                hideLoading();
                 if (docSnapshot.exists) {
                     const dados = docSnapshot.data();
-                    
                     const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
                     const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
-
-                    // Criação da janela virtual com a formatação CSS para Rotação Absoluta
-                    // Isso garante que a impressão saia no formato Paisagem, ignorando as falhas do Chrome
-                    const janelaImpressao = window.open('', '', 'width=400,height=600');
-                    janelaImpressao.document.write(`
-                        <html>
-                        <head>
-                            <title>Etiqueta Kit ${id}</title>
-                            <style>
-                                /* Define o tamanho do papel. A fita tem 29mm de largura. Mandamos cortar em 50mm. */
-                                @page { 
-                                    margin: 0; 
-                                    size: 29mm 50mm; 
-                                }
-                                body {
-                                    margin: 0;
-                                    padding: 0;
-                                    width: 29mm;
-                                    height: 50mm;
-                                    background: white;
-                                    overflow: hidden;
-                                    position: relative;
-                                    font-family: 'Arial', sans-serif;
-                                }
-                                /* O Container Principal que sofre a Rotação para ficar Paisagem */
-                                .label-wrapper {
-                                    position: absolute;
-                                    top: 50%;
-                                    left: 50%;
-                                    width: 48mm;  /* 50mm - margens de segurança */
-                                    height: 27mm; /* 29mm - margens de segurança */
-                                    transform: translate(-50%, -50%) rotate(90deg); /* Centraliza e Gira 90 Graus */
-                                    display: flex;
-                                    flex-direction: row;
-                                    align-items: center;
-                                    justify-content: space-between;
-                                    box-sizing: border-box;
-                                    padding: 1mm;
-                                }
-                                /* Coluna Esquerda: QR Code */
-                                .qr-col {
-                                    width: 16mm;
-                                    display: flex;
-                                    justify-content: center;
-                                    align-items: center;
-                                    margin-right: 2mm;
-                                }
-                                .qr-code { 
-                                    width: 16mm; 
-                                    height: 16mm; 
-                                }
-                                /* Coluna Direita: Textos */
-                                .text-col {
-                                    flex: 1;
-                                    display: flex;
-                                    flex-direction: column;
-                                    justify-content: center;
-                                    text-align: left;
-                                }
-                                .title { 
-                                    font-size: 11pt; 
-                                    font-weight: 900; 
-                                    margin-bottom: 2px; 
-                                    text-transform: uppercase; 
-                                    line-height: 1;
-                                    color: #000;
-                                }
-                                .service { 
-                                    font-size: 7pt; 
-                                    font-weight: bold; 
-                                    margin-bottom: 2px; 
-                                    border-bottom: 1px dashed #000; 
-                                    padding-bottom: 2px; 
-                                    line-height: 1.1;
-                                    color: #000;
-                                }
-                                .branch { 
-                                    font-size: 8pt; 
-                                    font-weight: 800; 
-                                    line-height: 1.1;
-                                    color: #000;
-                                }
-                            </style>
-                        </head>
-                        <body>
-                            <div class="label-wrapper">
-                                <div class="qr-col">
-                                    <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}" class="qr-code">
-                                </div>
-                                <div class="text-col">
-                                    <div class="title">${id}</div>
-                                    <div class="service">${tipoServico}</div>
-                                    <div class="branch">${branch}</div>
-                                </div>
-                            </div>
-                        </body>
-                        </html>
-                    `);
-                    janelaImpressao.document.close();
-                    janelaImpressao.focus();
-                    
-                    // Aguarda a imagem carregar antes de abrir o diálogo de impressão
-                    setTimeout(() => {
-                        janelaImpressao.print();
-                        janelaImpressao.close();
-                    }, 500);
+                    _printLabel(id, tipoServico, branch);
+                } else {
+                    hideLoading();
                 }
             }).catch(err => {
                 hideLoading();
                 alert("Erro ao ler dados para impressão: " + err.message);
             });
+        }
+
+        function imprimirEtiquetaLocal(id) {
+            const item = store.bolsoes.find(x => x._id === id);
+            if(item) {
+                showLoading("Gerando Etiqueta...");
+                let titulo = item[item._titleField] || "KIT";
+                let foundBranch = '';
+                let foundServico = '';
+                for (let k in item) {
+                    let kLow = k.toLowerCase();
+                    if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
+                    if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = item[k];
+                }
+                _printLabel(titulo, foundServico, foundBranch);
+            }
+        }
+
+        // TAMANHO AJUSTADO: Fita de 28mm x 36mm (Evita corte nas bordas e zoom automático)
+        function _printLabel(titulo, servico, branch) {
+            hideLoading();
+            const janelaImpressao = window.open('', '', 'width=400,height=600');
+            janelaImpressao.document.write(`
+                <html>
+                <head>
+                    <title>Etiqueta Kit ${titulo}</title>
+                    <style>
+                        @page { 
+                            margin: 0; 
+                            size: 28mm 36mm; 
+                        }
+                        body {
+                            margin: 0;
+                            padding: 0;
+                            width: 28mm;
+                            height: 36mm;
+                            background: white;
+                            overflow: hidden;
+                            position: relative;
+                            font-family: 'Arial', sans-serif;
+                        }
+                        .label-wrapper {
+                            position: absolute;
+                            top: 50%;
+                            left: 50%;
+                            width: 34mm;  /* Deixa 2mm de margem segura */
+                            height: 26mm; /* Deixa 2mm de margem segura */
+                            transform: translate(-50%, -50%) rotate(90deg); 
+                            display: flex;
+                            flex-direction: row;
+                            align-items: center;
+                            justify-content: flex-start;
+                            box-sizing: border-box;
+                        }
+                        .qr-col {
+                            width: 14mm;
+                            height: 14mm;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            margin-right: 1.5mm;
+                            flex-shrink: 0;
+                        }
+                        .qr-code { 
+                            width: 100%; 
+                            height: 100%; 
+                        }
+                        .text-col {
+                            flex: 1;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            text-align: left;
+                            overflow: hidden;
+                        }
+                        .title { 
+                            font-size: 10pt; 
+                            font-weight: 900; 
+                            margin-bottom: 1mm; 
+                            text-transform: uppercase; 
+                            line-height: 1;
+                            color: #000;
+                            letter-spacing: -0.2px;
+                            white-space: nowrap;
+                        }
+                        .service { 
+                            font-size: 6.5pt; 
+                            font-weight: bold; 
+                            margin-bottom: 1.5mm; 
+                            border-bottom: 1px dashed #000; 
+                            padding-bottom: 1mm; 
+                            line-height: 1.1;
+                            color: #000;
+                            white-space: nowrap;
+                        }
+                        .branch { 
+                            font-size: 7.5pt; 
+                            font-weight: 800; 
+                            line-height: 1.1;
+                            color: #000;
+                            white-space: nowrap;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="label-wrapper">
+                        <div class="qr-col">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${titulo}" class="qr-code">
+                        </div>
+                        <div class="text-col">
+                            <div class="title">${titulo}</div>
+                            <div class="service">${servico}</div>
+                            <div class="branch">${branch}</div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            janelaImpressao.document.close();
+            janelaImpressao.focus();
+            
+            setTimeout(() => {
+                janelaImpressao.print();
+                janelaImpressao.close();
+            }, 500);
         }
 
         // --- SISTEMA DE EDIÇÃO NA NUVEM ---
@@ -827,6 +848,8 @@
                             ${item._link && currentTab !== 'bolsoes' ? `<button onclick="abrirJiraComDados('${item._id}')" class="bg-blue-600 hover:bg-blue-700 text-[9px] text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors">Autopreencher Jira <i data-lucide="external-link" class="w-3 h-3"></i></button>` : ''}
                         </div>
                         <div class="flex gap-2">
+                            ${currentTab === 'bolsoes' ? `<button onclick="imprimirEtiquetaLocal('${item._id}')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Imprimir Etiqueta"><i data-lucide="printer" class="w-3 h-3"></i></button>` : ''}
+                            
                             <button onclick="deleteCard('${item._id}')" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Excluir este card"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             
                             ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Puxar Seriais guardados na Nuvem"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Kit</button>` : ''}
