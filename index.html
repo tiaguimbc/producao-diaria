@@ -273,7 +273,7 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother (29mm)">
+                                <button onclick="imprimirEtiquetaKit('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother (29x50mm)">
                                     <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
                                 </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
@@ -302,32 +302,40 @@
                 hideLoading();
                 if (docSnapshot.exists) {
                     const dados = docSnapshot.data();
-                    const branch = dados['_branch_modal'] || '';
-                    const tipoServico = dados['_servico_modal'] || '';
+                    // O "Plano B" que faltava na impressão para puxar as informações certinhas!
+                    const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
+                    const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
 
-                    // Cria uma janela invisível formatada para o tamanho exato da fita de 29mm
+                    // Cria uma janela invisível formatada para o tamanho EXATO: 29mm largura x 50mm altura
                     const janelaImpressao = window.open('', '', 'width=400,height=600');
                     janelaImpressao.document.write(`
                         <html>
                         <head>
                             <title>Etiqueta Kit ${id}</title>
                             <style>
-                                @page { margin: 0; size: 29mm auto; }
+                                @page { 
+                                    margin: 0; 
+                                    size: 29mm 50mm; 
+                                }
                                 body {
                                     font-family: 'Arial', sans-serif;
                                     margin: 0;
                                     padding: 2mm 1mm;
                                     width: 29mm;
+                                    height: 50mm;
+                                    box-sizing: border-box;
                                     display: flex;
                                     flex-direction: column;
                                     align-items: center;
+                                    justify-content: center;
                                     text-align: center;
                                     background: white;
+                                    overflow: hidden;
                                 }
-                                .qr-code { width: 20mm; height: 20mm; margin-bottom: 2mm; }
-                                .titulo { font-size: 11px; font-weight: 900; margin-bottom: 1.5mm; word-wrap: break-word; line-height: 1.1; text-transform: uppercase; }
-                                .servico { font-size: 8px; font-weight: bold; margin-bottom: 1.5mm; word-wrap: break-word; line-height: 1.1; border: 1px solid #000; padding: 1px 3px; border-radius: 3px; }
-                                .branch { font-size: 7.5px; color: #000; word-wrap: break-word; line-height: 1.2; font-weight: bold; }
+                                .qr-code { width: 18mm; height: 18mm; margin-bottom: 2mm; }
+                                .titulo { font-size: 10px; font-weight: 900; margin-bottom: 1.5mm; word-wrap: break-word; line-height: 1; text-transform: uppercase; }
+                                .servico { font-size: 7.5px; font-weight: bold; margin-bottom: 1.5mm; word-wrap: break-word; line-height: 1.1; padding: 1px 0; border-top: 1px solid #000; border-bottom: 1px solid #000; width: 100%; }
+                                .branch { font-size: 7px; color: #000; word-wrap: break-word; line-height: 1.1; font-weight: bold; }
                             </style>
                         </head>
                         <body>
