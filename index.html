@@ -296,21 +296,30 @@
         }
 
         // ==========================================
-        // SISTEMA DE IMPRESSÃO (NUVEM E LOCAL)
+        // SISTEMA DE IMPRESSÃO (NUVEM E LOCAL) - ANTI-BLOQUEIO
         // ==========================================
         function imprimirEtiquetaNuvem(id) {
-            showLoading("Gerando Etiqueta...");
+            // Passo 1: Abre a janela sincronamente para o Chrome não bloquear como Spam
+            const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
+            if(!janelaImpressao) {
+                alert("⚠️ O Google Chrome bloqueou a aba de impressão. Por favor, permita os pop-ups clicando no ícone com um 'X' vermelho lá em cima na barra de endereços.");
+                return;
+            }
+            janelaImpressao.document.write('<h3 style="font-family:sans-serif; text-align:center; margin-top:20px;">Carregando dados...</h3>');
+
+            // Passo 2: Busca na nuvem e desenha a etiqueta
             db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
                 if (docSnapshot.exists) {
                     const dados = docSnapshot.data();
                     const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
                     const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
-                    _printLabel(id, tipoServico, branch);
+                    _renderizarEtiqueta(janelaImpressao, id, tipoServico, branch);
                 } else {
-                    hideLoading();
+                    janelaImpressao.close();
+                    alert("Kit não encontrado na Nuvem!");
                 }
             }).catch(err => {
-                hideLoading();
+                janelaImpressao.close();
                 alert("Erro ao ler dados para impressão: " + err.message);
             });
         }
@@ -318,7 +327,14 @@
         function imprimirEtiquetaLocal(id) {
             const item = store.bolsoes.find(x => x._id === id);
             if(item) {
-                showLoading("Gerando Etiqueta...");
+                // Passo 1: Abre a janela sincronamente
+                const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
+                if(!janelaImpressao) {
+                    alert("⚠️ O Google Chrome bloqueou a aba de impressão. Permita os pop-ups!");
+                    return;
+                }
+                
+                // Passo 2: Formata os dados locais e desenha a etiqueta
                 let titulo = item[item._titleField] || "KIT";
                 let foundBranch = '';
                 let foundServico = '';
@@ -327,15 +343,14 @@
                     if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
                     if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = item[k];
                 }
-                _printLabel(titulo, foundServico, foundBranch);
+                _renderizarEtiqueta(janelaImpressao, titulo, foundServico, foundBranch);
             }
         }
 
-        // TAMANHO AJUSTADO: Fita de 28mm x 36mm (Evita corte nas bordas e zoom automático)
-        function _printLabel(titulo, servico, branch) {
-            hideLoading();
-            const janelaImpressao = window.open('', '', 'width=400,height=600');
-            janelaImpressao.document.write(`
+        // TAMANHO AJUSTADO: Fita de 28mm x 36mm com onload do QR Code
+        function _renderizarEtiqueta(janela, titulo, servico, branch) {
+            janela.document.open();
+            janela.document.write(`
                 <html>
                 <head>
                     <title>Etiqueta Kit ${titulo}</title>
@@ -358,9 +373,9 @@
                             position: absolute;
                             top: 50%;
                             left: 50%;
-                            width: 34mm;  /* Deixa 2mm de margem segura */
-                            height: 26mm; /* Deixa 2mm de margem segura */
-                            transform: translate(-50%, -50%) rotate(90deg); 
+                            width: 34mm;  /* 36mm total - 2mm de respiro para a impressora não esticar */
+                            height: 26mm; /* 28mm total - 2mm de respiro */
+                            transform: translate(-50%, -50%) rotate(90deg); /* Mágica da Paisagem */
                             display: flex;
                             flex-direction: row;
                             align-items: center;
@@ -420,7 +435,7 @@
                 <body>
                     <div class="label-wrapper">
                         <div class="qr-col">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${titulo}" class="qr-code">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${titulo}" class="qr-code" onload="window.print(); window.close();" onerror="window.print(); window.close();">
                         </div>
                         <div class="text-col">
                             <div class="title">${titulo}</div>
@@ -431,13 +446,8 @@
                 </body>
                 </html>
             `);
-            janelaImpressao.document.close();
-            janelaImpressao.focus();
-            
-            setTimeout(() => {
-                janelaImpressao.print();
-                janelaImpressao.close();
-            }, 500);
+            janela.document.close();
+            janela.focus();
         }
 
         // --- SISTEMA DE EDIÇÃO NA NUVEM ---
@@ -461,7 +471,6 @@
             let inputsHTML = '';
             camposSeriais.forEach(c => {
                 let val = dados[c] || '';
-                // Cria inputs para todos os campos de serial, substituindo espaços no ID para não quebrar
                 inputsHTML += `
                     <div class="mb-3">
                         <label class="block text-[8px] font-bold text-slate-400 uppercase mb-1">${c}</label>
