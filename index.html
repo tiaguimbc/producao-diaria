@@ -814,7 +814,10 @@
             currentTab = id;
             document.querySelectorAll('.tab-button').forEach(b => b.classList.toggle('active', b.id === 'btn-'+id));
             document.querySelectorAll('.tab-content').forEach(c => c.classList.toggle('active', c.id === id));
-            document.getElementById('current-name').innerText = id.charAt(0).toUpperCase() + id.slice(1);
+            
+            // CORREÇÃO VISUAL AQUI: Garante que apareça "KITS" em vez de "BOLSOES"
+            document.getElementById('current-name').innerText = id === 'bolsoes' ? 'KITS' : id.charAt(0).toUpperCase() + id.slice(1);
+            
             document.getElementById('concluidos-tools').classList.toggle('hidden', id !== 'concluidos');
             document.getElementById('etiquetas-tools').classList.toggle('hidden', id !== 'etiquetas');
             document.getElementById('search-input').value = '';
@@ -822,6 +825,7 @@
         }
         
         function updateStats() {
+            // Contagem do Firestore é feita por um listener separado
             document.getElementById('stat-total').innerText = store.tiago.length + store.alana.length + store.william.length + store.viviane.length + store.bolsoes.length;
             document.getElementById('stat-done').innerText = store.concluidos.length;
         }
