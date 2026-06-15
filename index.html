@@ -273,7 +273,7 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta">
+                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother">
                                     <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
                                 </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
@@ -333,6 +333,9 @@
         }
 
         function _renderizarEtiqueta(janela, titulo, servico, branch) {
+            // Prepara as informações para dentro do QR Code com quebras de linha nativas
+            const qrConteudo = encodeURIComponent(`Kit: ${titulo}\nServiço: ${servico}\nCliente: ${branch}`);
+
             janela.document.open();
             janela.document.write(`
                 <html>
@@ -423,7 +426,7 @@
                 <body>
                     <div class="label-wrapper">
                         <div class="qr-col">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${titulo}" class="qr-code" onload="window.print(); window.close();" onerror="window.print(); window.close();">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrConteudo}" class="qr-code" onload="window.print(); window.close();" onerror="window.print(); window.close();">
                         </div>
                         <div class="text-col">
                             <div class="title">${titulo}</div>
