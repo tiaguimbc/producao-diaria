@@ -303,11 +303,10 @@
                 if (docSnapshot.exists) {
                     const dados = docSnapshot.data();
                     
-                    // Extração garantida dos dados para a etiqueta
                     const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
                     const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
 
-                    // Cria a janela de impressão formatada EXATAMENTE para 50mm (L) x 29mm (A) em Paisagem
+                    // Cria a janela de impressão com Layout Horizontal dividido (QR Code esq / Texto dir)
                     const janelaImpressao = window.open('', '', 'width=400,height=300');
                     janelaImpressao.document.write(`
                         <html>
@@ -321,69 +320,72 @@
                                 body {
                                     font-family: 'Arial', sans-serif;
                                     margin: 0;
-                                    padding: 2mm;
+                                    padding: 1.5mm;
                                     width: 50mm;
                                     height: 29mm;
                                     box-sizing: border-box;
                                     display: flex;
-                                    flex-direction: column;
+                                    flex-direction: row;
+                                    align-items: center;
                                     justify-content: space-between;
                                     background: white;
+                                    overflow: hidden;
                                 }
-                                .header {
-                                    display: flex;
-                                    justify-content: space-between;
-                                    align-items: flex-start;
-                                    width: 100%;
-                                }
-                                .titulo {
-                                    font-size: 11px;
-                                    font-weight: 900;
-                                    text-transform: uppercase;
-                                    line-height: 1;
-                                    max-width: 32mm;
-                                    word-wrap: break-word;
-                                }
-                                .logo {
-                                    height: 5mm;
-                                    object-fit: contain;
-                                    filter: grayscale(100%) contrast(200%);
-                                }
-                                .middle {
-                                    flex-grow: 1;
+                                .left {
+                                    width: 17mm;
+                                    height: 100%;
                                     display: flex;
                                     flex-direction: column;
                                     justify-content: center;
-                                    align-items: flex-start;
-                                    width: 100%;
-                                    margin-top: 1mm;
+                                    align-items: center;
                                 }
-                                .servico {
-                                    font-size: 8px;
-                                    font-weight: bold;
-                                    line-height: 1.2;
+                                .qr-code { 
+                                    width: 17mm; 
+                                    height: 17mm; 
                                 }
-                                .footer {
-                                    width: 100%;
-                                    text-align: center;
-                                    font-size: 9px;
-                                    font-weight: 900;
-                                    line-height: 1.1;
-                                    margin-top: 1mm;
-                                    text-transform: uppercase;
+                                .right {
+                                    width: 29mm;
+                                    height: 100%;
+                                    display: flex;
+                                    flex-direction: column;
+                                    justify-content: center;
+                                    text-align: left;
+                                    padding-left: 1.5mm;
+                                }
+                                .titulo { 
+                                    font-size: 10px; 
+                                    font-weight: 900; 
+                                    margin-bottom: 1.5mm; 
+                                    word-wrap: break-word; 
+                                    line-height: 1; 
+                                    text-transform: uppercase; 
+                                }
+                                .servico { 
+                                    font-size: 6.5px; 
+                                    font-weight: bold; 
+                                    margin-bottom: 1.5mm; 
+                                    word-wrap: break-word; 
+                                    line-height: 1.1; 
+                                    border-bottom: 1px dashed #333;
+                                    padding-bottom: 1mm;
+                                }
+                                .branch { 
+                                    font-size: 7.5px; 
+                                    color: #000; 
+                                    word-wrap: break-word; 
+                                    line-height: 1.1; 
+                                    font-weight: 900; 
                                 }
                             </style>
                         </head>
                         <body>
-                            <div class="header">
+                            <div class="left">
+                                <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${id}" class="qr-code">
+                            </div>
+                            <div class="right">
                                 <div class="titulo">${id}</div>
-                                <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" class="logo">
-                            </div>
-                            <div class="middle">
-                                ${tipoServico ? `<div class="servico">SERV: ${tipoServico}</div>` : ''}
-                            </div>
-                            <div class="footer">
-                                ${branch ? `${branch}` : ''}
+                                ${tipoServico ? `<div class="servico">${tipoServico}</div>` : ''}
+                                <div class="branch">${branch ? branch : 'Estoque Local'}</div>
                             </div>
                         </body>
                         </html>
@@ -391,6 +393,7 @@
                     janelaImpressao.document.close();
                     janelaImpressao.focus();
                     
+                    // Aguarda a imagem do QR Code carregar
                     setTimeout(() => {
                         janelaImpressao.print();
                         janelaImpressao.close();
@@ -423,6 +426,7 @@
             let inputsHTML = '';
             camposSeriais.forEach(c => {
                 let val = dados[c] || '';
+                // Cria inputs para todos os campos de serial, substituindo espaços no ID para não quebrar
                 inputsHTML += `
                     <div class="mb-3">
                         <label class="block text-[8px] font-bold text-slate-400 uppercase mb-1">${c}</label>
