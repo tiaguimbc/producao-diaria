@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
+    <!-- Scripts do Firebase (Incluindo Auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -53,6 +54,13 @@
         
         /* Oculta o app antes do login */
         #app-content { display: none; }
+
+        /* Estilo da tela de login com o wallpaper */
+        #login-screen {
+            background-image: linear-gradient(rgba(15, 23, 42, 0.6), rgba(15, 23, 42, 0.8)), url('https://raw.githubusercontent.com/tiaguimbc/producao-diaria/main/unnamed.jpg');
+            background-size: cover;
+            background-position: center;
+        }
     </style>
 </head>
 <body class="text-slate-900 pb-10">
@@ -62,13 +70,15 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
-    <div id="login-screen" class="fixed inset-0 bg-slate-900 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+    <!-- TELA DE LOGIN COM PAPEL DE PAREDE -->
+    <div id="login-screen" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center card-animation border border-slate-200">
             <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics" class="h-12 mx-auto mb-6 object-contain">
             <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Acesso Restrito</h2>
             <p class="text-xs text-slate-500 font-medium mb-8">Faça login com sua conta corporativa para acessar o PCP.</p>
 
             <button onclick="loginGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm">
+                <!-- Ícone SVG do Google -->
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -80,7 +90,9 @@
         </div>
     </div>
 
+    <!-- TODO O APP FICA AQUI DENTRO (Escondido antes do login) -->
     <div id="app-content">
+        <!-- MODAL DE ESTOQUE NA NUVEM -->
         <div id="cloud-modal-overlay">
             <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
                 <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
@@ -121,6 +133,7 @@
                         </a>
                     </div>
 
+                    <!-- Perfil do Usuário e Botão de Sair -->
                     <div class="flex items-center gap-3 pl-3 ml-1 border-l border-slate-200">
                         <div class="hidden md:block text-right">
                             <p class="text-[8px] font-bold text-slate-400 uppercase leading-tight">Usuário Logado</p>
@@ -282,7 +295,6 @@
             }
         });
 
-
         // ==========================================
         // FUNÇÕES DO MODAL (ESTOQUE NA NUVEM)
         // ==========================================
@@ -350,6 +362,9 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
+                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta">
+                                    <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
+                                </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
                                     <i data-lucide="copy" class="w-3 h-3"></i> Copiar ID
                                 </button>
@@ -367,6 +382,148 @@
             }).catch((error) => {
                 lista.innerHTML = `<div class="text-center text-red-500 py-10 font-bold text-xs">Erro de conexão: ${error.message}</div>`;
             });
+        }
+
+        // ==========================================
+        // SISTEMA DE IMPRESSÃO (BLINDADO COM POSITION ABSOLUTE)
+        // ==========================================
+        function imprimirEtiquetaNuvem(id) {
+            const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
+            if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups na barra de endereços."); return; }
+            janelaImpressao.document.write('<h3 style="font-family:sans-serif; text-align:center; margin-top:20px;">Carregando dados...</h3>');
+
+            db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
+                if (docSnapshot.exists) {
+                    const dados = docSnapshot.data();
+                    const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
+                    const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
+                    _renderizarEtiqueta(janelaImpressao, id, tipoServico, branch);
+                } else {
+                    janelaImpressao.close(); alert("Kit não encontrado na Nuvem!");
+                }
+            }).catch(err => { janelaImpressao.close(); alert("Erro: " + err.message); });
+        }
+
+        function imprimirEtiquetaLocal(id) {
+            const item = store.bolsoes.find(x => x._id === id);
+            if(item) {
+                const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
+                if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups!"); return; }
+                
+                let titulo = item[item._titleField] || "KIT";
+                let foundBranch = ''; let foundServico = '';
+                for (let k in item) {
+                    let kLow = k.toLowerCase();
+                    if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
+                    if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = item[k];
+                }
+                _renderizarEtiqueta(janelaImpressao, titulo, foundServico, foundBranch);
+            }
+        }
+
+        function _renderizarEtiqueta(janela, titulo, servico, branch) {
+            const qrConteudo = encodeURIComponent(`Kit: ${titulo}\nServiço: ${servico}\nCliente: ${branch}`);
+
+            janela.document.open();
+            janela.document.write(`
+                <html>
+                <head>
+                    <title>Etiqueta Kit ${titulo}</title>
+                    <style>
+                        @page { 
+                            margin: 0 !important; 
+                            size: 29mm 42mm; 
+                        }
+                        body {
+                            margin: 0 !important;
+                            padding: 0 !important;
+                            width: 29mm;
+                            height: 42mm;
+                            background: white;
+                            overflow: hidden;
+                            position: relative;
+                            font-family: 'Arial', sans-serif;
+                        }
+                        .label-wrapper {
+                            position: absolute;
+                            top: 1mm;
+                            left: 28mm; 
+                            width: 40mm;
+                            height: 27mm;
+                            transform-origin: top left;
+                            transform: rotate(90deg); 
+                            display: flex;
+                            flex-direction: row;
+                            align-items: center;
+                            justify-content: flex-start;
+                            box-sizing: border-box;
+                        }
+                        .qr-col {
+                            width: 13mm;
+                            height: 13mm;
+                            display: flex;
+                            justify-content: center;
+                            align-items: center;
+                            margin-right: 1.5mm;
+                            flex-shrink: 0;
+                        }
+                        .qr-code { 
+                            width: 100%; 
+                            height: 100%; 
+                        }
+                        .text-col {
+                            flex: 1;
+                            display: flex;
+                            flex-direction: column;
+                            justify-content: center;
+                            text-align: left;
+                            overflow: hidden;
+                        }
+                        .title { 
+                            font-size: 8.5pt; 
+                            font-weight: 900; 
+                            margin-bottom: 1mm; 
+                            text-transform: uppercase; 
+                            line-height: 1.1;
+                            color: #000;
+                            letter-spacing: -0.2px;
+                            word-wrap: break-word;
+                        }
+                        .service { 
+                            font-size: 6.5pt; 
+                            font-weight: bold; 
+                            margin-bottom: 1.5mm; 
+                            border-bottom: 1px dashed #000; 
+                            padding-bottom: 1mm; 
+                            line-height: 1.1;
+                            color: #000;
+                            word-wrap: break-word;
+                        }
+                        .branch { 
+                            font-size: 7.5pt; 
+                            font-weight: 800; 
+                            line-height: 1.1;
+                            color: #000;
+                            word-wrap: break-word;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="label-wrapper">
+                        <div class="qr-col">
+                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrConteudo}" class="qr-code" onload="window.print(); window.close();" onerror="window.print(); window.close();">
+                        </div>
+                        <div class="text-col">
+                            <div class="title">${titulo}</div>
+                            <div class="service">${servico}</div>
+                            <div class="branch">${branch}</div>
+                        </div>
+                    </div>
+                </body>
+                </html>
+            `);
+            janela.document.close();
+            janela.focus();
         }
 
         // ==========================================
@@ -732,6 +889,8 @@
                             ${item._link && currentTab !== 'bolsoes' ? `<button onclick="abrirJiraComDados('${item._id}')" class="bg-blue-600 hover:bg-blue-700 text-[9px] text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors">Autopreencher Jira <i data-lucide="external-link" class="w-3 h-3"></i></button>` : ''}
                         </div>
                         <div class="flex gap-2">
+                            ${currentTab === 'bolsoes' ? `<button onclick="imprimirEtiquetaLocal('${item._id}')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Imprimir Etiqueta"><i data-lucide="printer" class="w-3 h-3"></i></button>` : ''}
+                            
                             <button onclick="deleteCard('${item._id}')" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Excluir este card"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             
                             ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Puxar Seriais guardados na Nuvem"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Kit</button>` : ''}
