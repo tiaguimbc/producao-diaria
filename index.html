@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
+    <!-- Scripts do Firebase (Incluindo Auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -85,6 +86,7 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
+    <!-- TELA DE LOGIN COM PAPEL DE PAREDE -->
     <div id="login-screen" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center card-animation border border-slate-200">
             <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics" class="h-12 mx-auto mb-6 object-contain">
@@ -92,6 +94,7 @@
             <p class="text-xs text-slate-500 font-medium mb-8">Faça login com sua conta corporativa para acessar o PCP.</p>
 
             <button onclick="loginGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm">
+                <!-- Ícone SVG do Google -->
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -103,16 +106,20 @@
         </div>
     </div>
 
+    <!-- TODO O APP FICA AQUI DENTRO -->
     <div id="app-content">
         
+        <!-- MODAL DE ESTOQUE NA NUVEM COM ROLAGEM CORRIGIDA -->
         <div id="cloud-modal-overlay">
             <div class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden card-animation border border-slate-200 relative">
                 
-                <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50 gap-4 pr-16">
+                <!-- CABEÇALHO FIXO -->
+                <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50 gap-4 pr-16 shrink-0">
                     <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 shrink-0">
                         <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> KITS NO ESTOQUE
                     </h3>
                     
+                    <!-- BARRA DE PESQUISA -->
                     <div class="relative w-full max-w-md">
                         <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
                         <input type="text" id="search-nuvem-input" onkeyup="filtrarNuvem()" placeholder="Pesquisar kit, chamado, cliente, serviço ou serial..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all shadow-sm">
@@ -123,7 +130,8 @@
                     <i data-lucide="x" class="w-4 h-4"></i>
                 </button>
 
-                <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white custom-scrollbar"></div>
+                <!-- ÁREA DE ROLAGEM COM A TRAVA min-h-0 PARA O SCROLL FUNCIONAR -->
+                <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 min-h-0 bg-white custom-scrollbar"></div>
             </div>
         </div>
 
@@ -153,6 +161,7 @@
                         </a>
                     </div>
 
+                    <!-- Perfil do Usuário e Botão de Sair -->
                     <div class="flex items-center gap-3 pl-3 ml-1 border-l border-slate-200">
                         <div class="hidden md:block text-right">
                             <p class="text-[8px] font-bold text-slate-400 uppercase leading-tight">Usuário Logado</p>
@@ -310,16 +319,14 @@
         });
 
         // ==========================================
-        // FILTRAGEM INTELIGENTE DO MODAL (NOVIDADE)
+        // FILTRAGEM INTELIGENTE DO MODAL
         // ==========================================
         function filtrarNuvem() {
             const termo = document.getElementById('search-nuvem-input').value.toLowerCase();
-            const cards = document.querySelectorAll('.nuvem-card-item'); // Nova classe nos cards
+            const cards = document.querySelectorAll('.nuvem-card-item');
             
             cards.forEach(card => {
-                // Lê todo o texto dentro do card (id, chamado, cliente, serviço, seriais)
                 const textoDoCard = card.innerText.toLowerCase();
-                
                 if (textoDoCard.includes(termo)) {
                     card.style.display = 'flex';
                 } else {
@@ -335,7 +342,6 @@
             const modal = document.getElementById('cloud-modal-overlay');
             const lista = document.getElementById('cloud-modal-list');
             
-            // Limpa o input da busca sempre que abrir
             document.getElementById('search-nuvem-input').value = '';
             
             modal.style.display = 'flex';
@@ -617,8 +623,6 @@
         let currentProcessingId = null;
         let isBatchSubmit = false;
         let lastJumpTime = 0; 
-        
-        const camposSeriais = ["Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"];
         
         function save() { localStorage.setItem(DB_NAME, JSON.stringify(store)); updateStats(); }
 
