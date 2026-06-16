@@ -15,6 +15,7 @@
     
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
 
     <style>
         body {
@@ -49,6 +50,9 @@
         }
         #loading-overlay { background: rgba(255,255,255,0.95); flex-direction: column; }
         #cloud-modal-overlay { background: rgba(15, 23, 42, 0.6); padding: 1rem; }
+        
+        /* Oculta o app antes do login */
+        #app-content { display: none; }
     </style>
 </head>
 <body class="text-slate-900 pb-10">
@@ -58,136 +62,165 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
-    <div id="cloud-modal-overlay">
-        <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
-            <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
-                    <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> KITS NO ESTOQUE
-                </h3>
-                <button onclick="fecharEstoqueNuvem()" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
-                    <i data-lucide="x" class="w-4 h-4"></i>
-                </button>
-            </div>
-            <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white"></div>
+    <div id="login-screen" class="fixed inset-0 bg-slate-900 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
+        <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center card-animation border border-slate-200">
+            <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics" class="h-12 mx-auto mb-6 object-contain">
+            <h2 class="text-2xl font-black text-slate-800 uppercase tracking-tight mb-2">Acesso Restrito</h2>
+            <p class="text-xs text-slate-500 font-medium mb-8">Faça login com sua conta corporativa para acessar o PCP.</p>
+
+            <button onclick="loginGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm">
+                <svg class="w-5 h-5" viewBox="0 0 24 24">
+                    <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                    <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                    <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                    <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+                </svg>
+                Entrar com o Google
+            </button>
         </div>
     </div>
 
-    <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof finalizeSubmit === 'function') finalizeSubmit()"></iframe>
-
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-            
-            <div class="flex items-center gap-4">
-                <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics Logo" class="h-10 object-contain">
-                <div class="hidden md:block h-8 w-px bg-slate-200"></div>
-                <h1 class="text-lg font-black text-slate-800 uppercase tracking-tight">Produção Diária - PCP</h1>
+    <div id="app-content">
+        <div id="cloud-modal-overlay">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
+                <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
+                    <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+                        <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> KITS NO ESTOQUE
+                    </h3>
+                    <button onclick="fecharEstoqueNuvem()" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
+                        <i data-lucide="x" class="w-4 h-4"></i>
+                    </button>
+                </div>
+                <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white"></div>
             </div>
-            
-            <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
-                <div class="relative w-full md:w-64">
-                    <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
-                    <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none">
+        </div>
+
+        <iframe name="hidden_iframe" id="hidden_iframe" style="display:none;" onload="if(typeof finalizeSubmit === 'function') finalizeSubmit()"></iframe>
+
+        <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 md:px-6 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
+                
+                <div class="flex items-center gap-4">
+                    <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics Logo" class="h-10 object-contain">
+                    <div class="hidden md:block h-8 w-px bg-slate-200"></div>
+                    <h1 class="text-lg font-black text-slate-800 uppercase tracking-tight">Produção Diária - PCP</h1>
                 </div>
                 
-                <div class="flex gap-2">
-                    <a href="https://catalogo-de-kits-queonetics.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
-                        <i data-lucide="book-open" class="w-3.5 h-3.5 text-blue-600"></i> Catálogo
-                    </a>
-                    <a href="https://converso-cartao-rfid.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
-                        <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-600"></i> Conversor
-                    </a>
+                <div class="flex flex-col md:flex-row items-center gap-3 w-full md:w-auto">
+                    <div class="relative w-full md:w-64">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="search-input" oninput="filterCards()" placeholder="Procurar..." class="w-full pl-10 pr-4 py-2 bg-slate-50 border border-slate-200 rounded-full text-sm outline-none">
+                    </div>
+                    
+                    <div class="flex gap-2">
+                        <a href="https://catalogo-de-kits-queonetics.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
+                            <i data-lucide="book-open" class="w-3.5 h-3.5 text-blue-600"></i> Catálogo
+                        </a>
+                        <a href="https://converso-cartao-rfid.vercel.app/" target="_blank" class="bg-slate-50 hover:bg-slate-100 text-slate-600 px-4 py-2 rounded-full text-[9px] font-bold uppercase transition-all flex items-center gap-2 border border-slate-200 shadow-sm">
+                            <i data-lucide="refresh-cw" class="w-3.5 h-3.5 text-blue-600"></i> Conversor
+                        </a>
+                    </div>
+
+                    <div class="flex items-center gap-3 pl-3 ml-1 border-l border-slate-200">
+                        <div class="hidden md:block text-right">
+                            <p class="text-[8px] font-bold text-slate-400 uppercase leading-tight">Usuário Logado</p>
+                            <p id="user-name-display" class="text-[10px] font-black text-slate-700 leading-tight">Carregando...</p>
+                        </div>
+                        <button onclick="logoutGoogle()" class="bg-slate-100 hover:bg-red-100 text-slate-500 hover:text-red-600 p-2 rounded-full transition-colors shadow-sm" title="Sair do Sistema">
+                            <i data-lucide="log-out" class="w-4 h-4"></i>
+                        </button>
+                    </div>
+
                 </div>
             </div>
-        </div>
-    </header>
+        </header>
 
-    <main class="max-w-7xl mx-auto px-4 py-6">
-        <div class="flex solid-panel rounded-2xl shadow-sm mb-6 p-1 overflow-x-auto">
-            <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> TIAGO</button>
-            <button onclick="switchTab('alana')" id="btn-alana" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> ALANA</button>
-            <button onclick="switchTab('william')" id="btn-william" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> WILLIAM</button>
-            <button onclick="switchTab('viviane')" id="btn-viviane" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> VIVIANE</button>
-            
-            <button onclick="switchTab('bolsoes')" id="btn-bolsoes" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-violet-600 font-bold"><i data-lucide="package" class="w-4 h-4"></i> KITS - ESTOQUE</button>
-            
-            <button onclick="switchTab('concluidos')" id="btn-concluidos" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-emerald-600"><i data-lucide="check-circle" class="w-4 h-4"></i> CONCLUÍDOS</button>
-            <button onclick="switchTab('etiquetas')" id="btn-etiquetas" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-amber-600"><i data-lucide="tag" class="w-4 h-4"></i> ETIQUETAS</button>
-        </div>
+        <main class="max-w-7xl mx-auto px-4 py-6">
+            <div class="flex solid-panel rounded-2xl shadow-sm mb-6 p-1 overflow-x-auto">
+                <button onclick="switchTab('tiago')" id="btn-tiago" class="tab-button active flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> TIAGO</button>
+                <button onclick="switchTab('alana')" id="btn-alana" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> ALANA</button>
+                <button onclick="switchTab('william')" id="btn-william" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> WILLIAM</button>
+                <button onclick="switchTab('viviane')" id="btn-viviane" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all"><i data-lucide="user" class="w-4 h-4"></i> VIVIANE</button>
+                
+                <button onclick="switchTab('bolsoes')" id="btn-bolsoes" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-violet-600 font-bold"><i data-lucide="package" class="w-4 h-4"></i> KITS - ESTOQUE</button>
+                
+                <button onclick="switchTab('concluidos')" id="btn-concluidos" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-emerald-600"><i data-lucide="check-circle" class="w-4 h-4"></i> CONCLUÍDOS</button>
+                <button onclick="switchTab('etiquetas')" id="btn-etiquetas" class="tab-button flex-1 px-4 py-3 text-xs flex items-center justify-center gap-2 rounded-xl transition-all text-amber-600"><i data-lucide="tag" class="w-4 h-4"></i> ETIQUETAS</button>
+            </div>
 
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            <aside class="space-y-4">
-                <div class="solid-panel p-5 rounded-3xl shadow-sm">
-                    <h2 class="font-bold text-slate-700 mb-4 uppercase text-[10px] tracking-widest">Importar para: <span id="current-name" class="text-blue-600">Tiago</span></h2>
-                    <div class="space-y-3">
-                        <label class="relative block group">
-                            <div class="h-28 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50 group-hover:bg-blue-50 cursor-pointer transition-all text-center px-4">
-                                <i data-lucide="file-spreadsheet" class="w-8 h-8 text-slate-300"></i>
-                                <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Clique para selecionar CSV ou XLSX</span>
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <aside class="space-y-4">
+                    <div class="solid-panel p-5 rounded-3xl shadow-sm">
+                        <h2 class="font-bold text-slate-700 mb-4 uppercase text-[10px] tracking-widest">Importar para: <span id="current-name" class="text-blue-600">Tiago</span></h2>
+                        <div class="space-y-3">
+                            <label class="relative block group">
+                                <div class="h-28 border-2 border-dashed border-slate-200 rounded-2xl flex flex-col items-center justify-center bg-slate-50 group-hover:bg-blue-50 cursor-pointer transition-all text-center px-4">
+                                    <i data-lucide="file-spreadsheet" class="w-8 h-8 text-slate-300"></i>
+                                    <span class="text-[10px] font-bold text-slate-400 mt-2 uppercase">Clique para selecionar CSV ou XLSX</span>
+                                </div>
+                                <input type="file" id="file-input" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
+                            </label>
+                            
+                            <textarea id="paste-area" placeholder="Cole tabela para adicionar chamados OU cole lista de seriais..." class="w-full h-20 p-4 border border-slate-200 rounded-2xl text-[10px] outline-none bg-slate-50 resize-none"></textarea>
+                            
+                            <div class="flex gap-2">
+                                <button onclick="processPastedData()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-slate-800 transition-all">Importar</button>
+                                <button onclick="formatarSeriais()" id="btn-formatar" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1"><i data-lucide="code" class="w-3 h-3"></i> Por Vírgulas</button>
                             </div>
-                            <input type="file" id="file-input" accept=".csv, .xlsx, .xls" class="hidden" onchange="handleFileUpload(event)">
-                        </label>
-                        
-                        <textarea id="paste-area" placeholder="Cole tabela para adicionar chamados OU cole lista de seriais..." class="w-full h-20 p-4 border border-slate-200 rounded-2xl text-[10px] outline-none bg-slate-50 resize-none"></textarea>
-                        
-                        <div class="flex gap-2">
-                            <button onclick="processPastedData()" class="flex-1 bg-slate-900 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-slate-800 transition-all">Importar</button>
-                            <button onclick="formatarSeriais()" id="btn-formatar" class="flex-1 bg-blue-600 text-white py-2.5 rounded-xl font-bold text-[9px] uppercase shadow-lg hover:bg-blue-700 transition-all flex items-center justify-center gap-1"><i data-lucide="code" class="w-3 h-3"></i> Por Vírgulas</button>
                         </div>
                     </div>
-                </div>
 
-                <div class="bg-slate-900 p-5 rounded-3xl text-white shadow-lg">
-                    <div class="grid grid-cols-3 gap-2 mb-4 text-center">
-                        <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Pendentes</p><p class="text-xl font-black leading-none" id="stat-total">0</p></div>
-                        <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Feitos</p><p class="text-xl font-black text-emerald-400 leading-none" id="stat-done">0</p></div>
-                        
-                        <div onclick="abrirEstoqueNuvem()" class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 cursor-pointer hover:bg-violet-800/60 transition-colors shadow-lg shadow-violet-900/20 group flex flex-col justify-center" title="Clique para ver a lista de Kits no Estoque">
-                            <p class="text-[7.5px] leading-tight opacity-70 uppercase text-violet-300 flex items-center justify-center gap-1 text-center mb-1">KITS - ESTOQUE <i data-lucide="external-link" class="w-2 h-2 opacity-50 group-hover:opacity-100 transition-opacity"></i></p>
-                            <p class="text-xl font-black text-violet-400 leading-none" id="stat-nuvem">-</p>
+                    <div class="bg-slate-900 p-5 rounded-3xl text-white shadow-lg">
+                        <div class="grid grid-cols-3 gap-2 mb-4 text-center">
+                            <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Pendentes</p><p class="text-xl font-black leading-none" id="stat-total">0</p></div>
+                            <div class="bg-white/5 p-2 rounded-xl border border-white/10 flex flex-col justify-center"><p class="text-[8px] opacity-50 uppercase mb-1">Feitos</p><p class="text-xl font-black text-emerald-400 leading-none" id="stat-done">0</p></div>
+                            
+                            <div onclick="abrirEstoqueNuvem()" class="bg-violet-900/40 p-2 rounded-xl border border-violet-500/30 cursor-pointer hover:bg-violet-800/60 transition-colors shadow-lg shadow-violet-900/20 group flex flex-col justify-center" title="Clique para ver a lista de Kits no Estoque">
+                                <p class="text-[7.5px] leading-tight opacity-70 uppercase text-violet-300 flex items-center justify-center gap-1 text-center mb-1">KITS - ESTOQUE <i data-lucide="external-link" class="w-2 h-2 opacity-50 group-hover:opacity-100 transition-opacity"></i></p>
+                                <p class="text-xl font-black text-violet-400 leading-none" id="stat-nuvem">-</p>
+                            </div>
                         </div>
+                        <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
                     </div>
-                    <button onclick="clearCurrentTab()" class="w-full py-2 bg-red-500/20 text-red-400 rounded-xl text-[10px] font-black uppercase hover:bg-red-500 hover:text-white transition-all">Limpar Registos Locais</button>
-                </div>
-            </aside>
+                </aside>
 
-            <section id="cards-grid" class="lg:col-span-2">
-                <div id="concluidos-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500 bg-emerald-50/50">
-                    <button onclick="acaoSalvarTodos()" class="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-emerald-700 transition-all">Sincronizar Todos com Planilha Google</button>
-                </div>
-                <div id="etiquetas-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-amber-500 bg-amber-50/50">
-                    <button onclick="exportarEtiquetas()" class="w-full bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-green-700 transition-all">Gerar Excel de Etiquetas</button>
-                </div>
+                <section id="cards-grid" class="lg:col-span-2">
+                    <div id="concluidos-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-emerald-500 bg-emerald-50/50">
+                        <button onclick="acaoSalvarTodos()" class="w-full bg-emerald-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-emerald-700 transition-all">Sincronizar Todos com Planilha Google</button>
+                    </div>
+                    <div id="etiquetas-tools" class="hidden mb-4 solid-panel p-4 rounded-3xl shadow-sm border-l-4 border-l-amber-500 bg-amber-50/50">
+                        <button onclick="exportarEtiquetas()" class="w-full bg-green-600 text-white px-6 py-3 rounded-xl font-black text-[10px] uppercase shadow-lg hover:bg-green-700 transition-all">Gerar Excel de Etiquetas</button>
+                    </div>
 
-                <div id="tiago" class="tab-content active"><div class="space-y-4" id="container-tiago"></div></div>
-                <div id="alana" class="tab-content"><div class="space-y-4" id="container-alana"></div></div>
-                <div id="william" class="tab-content"><div class="space-y-4" id="container-william"></div></div>
-                <div id="viviane" class="tab-content"><div class="space-y-4" id="container-viviane"></div></div>
-                <div id="bolsoes" class="tab-content"><div class="space-y-4" id="container-bolsoes"></div></div>
-                <div id="concluidos" class="tab-content"><div class="space-y-4" id="container-concluidos"></div></div>
-                <div id="etiquetas" class="tab-content"><div class="space-y-4" id="container-etiquetas"></div></div>
+                    <div id="tiago" class="tab-content active"><div class="space-y-4" id="container-tiago"></div></div>
+                    <div id="alana" class="tab-content"><div class="space-y-4" id="container-alana"></div></div>
+                    <div id="william" class="tab-content"><div class="space-y-4" id="container-william"></div></div>
+                    <div id="viviane" class="tab-content"><div class="space-y-4" id="container-viviane"></div></div>
+                    <div id="bolsoes" class="tab-content"><div class="space-y-4" id="container-bolsoes"></div></div>
+                    <div id="concluidos" class="tab-content"><div class="space-y-4" id="container-concluidos"></div></div>
+                    <div id="etiquetas" class="tab-content"><div class="space-y-4" id="container-etiquetas"></div></div>
 
-                <div id="empty-state" class="py-20 text-center opacity-30 flex flex-col items-center">
-                    <i data-lucide="inbox" class="w-16 h-16"></i>
-                    <p class="text-sm font-black uppercase mt-2">Lista Vazia</p>
-                </div>
-            </section>
-        </div>
-    </main>
+                    <div id="empty-state" class="py-20 text-center opacity-30 flex flex-col items-center">
+                        <i data-lucide="inbox" class="w-16 h-16"></i>
+                        <p class="text-sm font-black uppercase mt-2">Lista Vazia</p>
+                    </div>
+                </section>
+            </div>
+        </main>
+    </div>
 
     <script>
         // ==========================================
-        // REMOÇÃO DO SERVICE WORKER (Desativa o Cache do PWA)
+        // REMOÇÃO DO SERVICE WORKER
         // ==========================================
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for(let registration of registrations) {
-                    registration.unregister();
-                }
+                for(let registration of registrations) { registration.unregister(); }
             });
         }
 
         // ==========================================
-        // INICIALIZAÇÃO DO CLOUD FIRESTORE
+        // INICIALIZAÇÃO DO CLOUD FIRESTORE & AUTH
         // ==========================================
         const firebaseConfig = {
             apiKey: "AIzaSyCpDi18ridgdvc1GK6VLHlvJ1UDRbZGyl0",
@@ -207,7 +240,51 @@
         });
 
         // ==========================================
-        // FUNÇÕES DO MODAL (COM BOTÃO DE IMPRIMIR)
+        // SISTEMA DE AUTENTICAÇÃO GOOGLE
+        // ==========================================
+        const provider = new firebase.auth.GoogleAuthProvider();
+
+        function loginGoogle() {
+            showLoading("Autenticando...");
+            firebase.auth().signInWithPopup(provider).catch((error) => {
+                hideLoading();
+                alert("Erro ao fazer login: " + error.message);
+            });
+        }
+
+        function logoutGoogle() {
+            firebase.auth().signOut();
+        }
+
+        // Monitor de Estado de Autenticação (Trava e Libera o App)
+        firebase.auth().onAuthStateChanged((user) => {
+            hideLoading();
+            if (user) {
+                // Logado com sucesso
+                document.getElementById('login-screen').style.display = 'none';
+                document.getElementById('app-content').style.display = 'block';
+                
+                // Atualiza o nome no topo
+                const userNameEl = document.getElementById('user-name-display');
+                if(userNameEl) {
+                    let firstName = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
+                    userNameEl.innerText = firstName;
+                }
+
+                // Renderiza os dados do LocalStorage
+                render();
+                updateStats();
+                lucide.createIcons();
+            } else {
+                // Deslogado (Esconde o App e Mostra Login)
+                document.getElementById('login-screen').style.display = 'flex';
+                document.getElementById('app-content').style.display = 'none';
+            }
+        });
+
+
+        // ==========================================
+        // FUNÇÕES DO MODAL (ESTOQUE NA NUVEM)
         // ==========================================
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
@@ -273,9 +350,6 @@
                             </div>
                             
                             <div class="flex gap-2 w-full sm:w-auto opacity-100 sm:opacity-0 group-hover:opacity-100 transition-opacity self-end mt-1">
-                                <button onclick="imprimirEtiquetaNuvem('${doc.id}')" class="flex items-center justify-center gap-1 bg-slate-200 text-slate-700 hover:bg-slate-300 hover:text-slate-900 px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Imprimir Etiqueta Brother">
-                                    <i data-lucide="printer" class="w-3 h-3"></i> Imprimir
-                                </button>
                                 <button onclick="copiarIDBolsao('${doc.id}')" class="flex-1 sm:flex-none flex items-center justify-center gap-1 bg-blue-100 text-blue-600 hover:bg-blue-600 hover:text-white px-3 py-1.5 rounded-lg transition-colors shadow-sm text-[9px] font-bold uppercase" title="Copiar ID do Kit">
                                     <i data-lucide="copy" class="w-3 h-3"></i> Copiar ID
                                 </button>
@@ -293,152 +367,6 @@
             }).catch((error) => {
                 lista.innerHTML = `<div class="text-center text-red-500 py-10 font-bold text-xs">Erro de conexão: ${error.message}</div>`;
             });
-        }
-
-        // ==========================================
-        // SISTEMA DE IMPRESSÃO (BLINDADO COM POSITION ABSOLUTE)
-        // ==========================================
-        function imprimirEtiquetaNuvem(id) {
-            const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
-            if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups na barra de endereços."); return; }
-            janelaImpressao.document.write('<h3 style="font-family:sans-serif; text-align:center; margin-top:20px;">Carregando dados...</h3>');
-
-            db.collection("estoque_bolsoes").doc(id).get().then((docSnapshot) => {
-                if (docSnapshot.exists) {
-                    const dados = docSnapshot.data();
-                    const branch = dados['_branch_modal'] || dados['Branch via argos'] || dados['Branch Via Argo'] || '';
-                    const tipoServico = dados['_servico_modal'] || dados['Tipo de serviço'] || '';
-                    _renderizarEtiqueta(janelaImpressao, id, tipoServico, branch);
-                } else {
-                    janelaImpressao.close(); alert("Kit não encontrado na Nuvem!");
-                }
-            }).catch(err => { janelaImpressao.close(); alert("Erro: " + err.message); });
-        }
-
-        function imprimirEtiquetaLocal(id) {
-            const item = store.bolsoes.find(x => x._id === id);
-            if(item) {
-                const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
-                if(!janelaImpressao) { alert("⚠️ O Chrome bloqueou a impressão. Permita pop-ups!"); return; }
-                
-                let titulo = item[item._titleField] || "KIT";
-                let foundBranch = ''; let foundServico = '';
-                for (let k in item) {
-                    let kLow = k.toLowerCase();
-                    if (kLow.includes('branch') || kLow.includes('argos') || kLow.includes('cliente')) foundBranch = item[k];
-                    if (kLow.includes('tipo de serviço') || kLow.includes('serviço') || kLow.includes('servico')) foundServico = item[k];
-                }
-                _renderizarEtiqueta(janelaImpressao, titulo, foundServico, foundBranch);
-            }
-        }
-
-        function _renderizarEtiqueta(janela, titulo, servico, branch) {
-            // Prepara as informações para dentro do QR Code com quebras de linha nativas
-            const qrConteudo = encodeURIComponent(`Kit: ${titulo}\nServiço: ${servico}\nCliente: ${branch}`);
-
-            janela.document.open();
-            janela.document.write(`
-                <html>
-                <head>
-                    <title>Etiqueta Kit ${titulo}</title>
-                    <style>
-                        /* Força o papel para 29x42 conforme selecionado no Chrome */
-                        @page { 
-                            margin: 0 !important; 
-                            size: 29mm 42mm; 
-                        }
-                        body {
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            width: 29mm;
-                            height: 42mm;
-                            background: white;
-                            overflow: hidden;
-                            position: relative;
-                            font-family: 'Arial', sans-serif;
-                        }
-                        /* Container centralizado usando os 42mm de espaço disponível */
-                        .label-wrapper {
-                            position: absolute;
-                            top: 1mm;
-                            left: 28mm; 
-                            width: 40mm;  /* Usa quase toda a extensão dos 42mm */
-                            height: 27mm; /* Usa quase toda a altura dos 29mm */
-                            transform-origin: top left;
-                            transform: rotate(90deg); 
-                            display: flex;
-                            flex-direction: row;
-                            align-items: center;
-                            justify-content: flex-start;
-                            box-sizing: border-box;
-                        }
-                        .qr-col {
-                            width: 13mm;
-                            height: 13mm;
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            margin-right: 1.5mm;
-                            flex-shrink: 0;
-                        }
-                        .qr-code { 
-                            width: 100%; 
-                            height: 100%; 
-                        }
-                        .text-col {
-                            flex: 1;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            text-align: left;
-                            overflow: hidden;
-                        }
-                        /* O word-wrap permite que o texto longo pule de linha sem ser cortado */
-                        .title { 
-                            font-size: 8.5pt; 
-                            font-weight: 900; 
-                            margin-bottom: 1mm; 
-                            text-transform: uppercase; 
-                            line-height: 1.1;
-                            color: #000;
-                            letter-spacing: -0.2px;
-                            word-wrap: break-word;
-                        }
-                        .service { 
-                            font-size: 6.5pt; 
-                            font-weight: bold; 
-                            margin-bottom: 1.5mm; 
-                            border-bottom: 1px dashed #000; 
-                            padding-bottom: 1mm; 
-                            line-height: 1.1;
-                            color: #000;
-                            word-wrap: break-word;
-                        }
-                        .branch { 
-                            font-size: 7.5pt; 
-                            font-weight: 800; 
-                            line-height: 1.1;
-                            color: #000;
-                            word-wrap: break-word;
-                        }
-                    </style>
-                </head>
-                <body>
-                    <div class="label-wrapper">
-                        <div class="qr-col">
-                            <img src="https://api.qrserver.com/v1/create-qr-code/?size=150x150&data=${qrConteudo}" class="qr-code" onload="window.print(); window.close();" onerror="window.print(); window.close();">
-                        </div>
-                        <div class="text-col">
-                            <div class="title">${titulo}</div>
-                            <div class="service">${servico}</div>
-                            <div class="branch">${branch}</div>
-                        </div>
-                    </div>
-                </body>
-                </html>
-            `);
-            janela.document.close();
-            janela.focus();
         }
 
         // ==========================================
@@ -804,8 +732,6 @@
                             ${item._link && currentTab !== 'bolsoes' ? `<button onclick="abrirJiraComDados('${item._id}')" class="bg-blue-600 hover:bg-blue-700 text-[9px] text-white px-3 py-1 rounded-lg font-bold flex items-center gap-1 transition-colors">Autopreencher Jira <i data-lucide="external-link" class="w-3 h-3"></i></button>` : ''}
                         </div>
                         <div class="flex gap-2">
-                            ${currentTab === 'bolsoes' ? `<button onclick="imprimirEtiquetaLocal('${item._id}')" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Imprimir Etiqueta"><i data-lucide="printer" class="w-3 h-3"></i></button>` : ''}
-                            
                             <button onclick="deleteCard('${item._id}')" class="bg-red-50 hover:bg-red-500 text-red-500 hover:text-white px-2.5 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Excluir este card"><i data-lucide="trash-2" class="w-3.5 h-3.5"></i></button>
                             
                             ${!isConcluido && currentTab !== 'etiquetas' && currentTab !== 'bolsoes' ? `<button onclick="puxarBolsao('${item._id}')" class="bg-violet-100 hover:bg-violet-600 text-violet-600 hover:text-white border border-violet-200 px-3 py-1 rounded-lg text-[9px] font-bold uppercase transition-colors flex items-center gap-1" title="Puxar Seriais guardados na Nuvem"><i data-lucide="cloud-download" class="w-3 h-3"></i> Puxar Kit</button>` : ''}
@@ -946,7 +872,8 @@
             } else { updateStats(); }
         }
 
-        window.onload = () => { render(); updateStats(); };
+        // Não precisa mais renderizar direto no onload, o onAuthStateChanged cuida disso.
+        // window.onload = () => { render(); updateStats(); };
     </script>
 </body>
 </html>
