@@ -13,6 +13,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
+    <!-- Scripts do Firebase (Incluindo Auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -85,6 +86,7 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
+    <!-- TELA DE LOGIN COM PAPEL DE PAREDE -->
     <div id="login-screen" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center card-animation border border-slate-200">
             <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics" class="h-12 mx-auto mb-6 object-contain">
@@ -92,6 +94,7 @@
             <p class="text-xs text-slate-500 font-medium mb-8">Faça login com sua conta corporativa para acessar o PCP.</p>
 
             <button onclick="loginGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm">
+                <!-- Ícone SVG do Google -->
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -103,8 +106,10 @@
         </div>
     </div>
 
+    <!-- TODO O APP FICA AQUI DENTRO -->
     <div id="app-content">
         
+        <!-- MODAL DE ESTOQUE NA NUVEM -->
         <div id="cloud-modal-overlay">
             <div class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden card-animation border border-slate-200 relative">
                 
@@ -244,7 +249,6 @@
     <script>
         // ==========================================
         // VARIÁVEIS GLOBAIS E INICIAIS
-        // Mover para o topo resolve o erro de "is not defined"
         // ==========================================
         const camposSeriais = ["Serial Rastreador", "Iccid", "Serial TX009", "Serial Leitor", "Serial Teclado", "Serial Smart Speaker", "Serial Câmera", "Iccid Camera"];
         const WEB_APP_URL = "https://script.google.com/a/macros/queonetics.com/s/AKfycby2ftCCf4SipPtZPnMuzzFFBcLoB54OXp4ssOk7hLS0w8aRK-b9C_CmVaR8lJihVgPg/exec";
@@ -618,7 +622,7 @@
                 db.collection("estoque_bolsoes").doc(id).delete().then(() => { abrirEstoqueNuvem(); }).catch((error) => { alert("Erro ao excluir: " + error.message); });
             }
         }
-
+        
         function save() { localStorage.setItem(DB_NAME, JSON.stringify(store)); updateStats(); }
 
         function showLoading(msg) {
@@ -688,7 +692,9 @@
             nomeBolsao = nomeBolsao.trim().toUpperCase().replace(/[\/]/g, '-');
 
             showLoading("Buscando no Firestore...");
-            db.collection("estoque_bolsoes").doc(nomeBolsao).get().then((doc) => {
+            const docRef = db.collection("estoque_bolsoes").doc(nomeBolsao);
+            
+            docRef.get().then((doc) => {
                 if (doc.exists) {
                     const dadosBolsao = doc.data();
                     const card = store[currentTab].find(x => x._id === cardId);
