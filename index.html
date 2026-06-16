@@ -13,7 +13,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
     
-    <!-- Scripts do Firebase (Incluindo Auth) -->
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-firestore-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-auth-compat.js"></script>
@@ -61,6 +60,22 @@
             background-size: cover;
             background-position: center;
         }
+
+        /* Custom Scrollbar super elegante para o Modal */
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 8px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: #f1f5f9;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 10px;
+        }
+        .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
     </style>
 </head>
 <body class="text-slate-900 pb-10">
@@ -70,7 +85,6 @@
         <p id="loading-text" class="font-black text-blue-800 uppercase tracking-widest text-sm animate-pulse">Processando...</p>
     </div>
 
-    <!-- TELA DE LOGIN COM PAPEL DE PAREDE -->
     <div id="login-screen" class="fixed inset-0 z-[99999] flex flex-col items-center justify-center p-4 transition-opacity duration-300">
         <div class="bg-white p-8 rounded-3xl shadow-2xl max-w-sm w-full text-center card-animation border border-slate-200">
             <img src="https://raw.githubusercontent.com/tiagomedeiros-star/Produ-o-diaria/main/logoqueonetics.png" alt="Queonetics" class="h-12 mx-auto mb-6 object-contain">
@@ -78,7 +92,6 @@
             <p class="text-xs text-slate-500 font-medium mb-8">Faça login com sua conta corporativa para acessar o PCP.</p>
 
             <button onclick="loginGoogle()" class="w-full flex items-center justify-center gap-3 bg-white border-2 border-slate-200 hover:bg-slate-50 text-slate-700 px-4 py-3.5 rounded-xl font-bold text-sm transition-all shadow-sm">
-                <!-- Ícone SVG do Google -->
                 <svg class="w-5 h-5" viewBox="0 0 24 24">
                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
                     <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
@@ -90,20 +103,27 @@
         </div>
     </div>
 
-    <!-- TODO O APP FICA AQUI DENTRO (Escondido antes do login) -->
     <div id="app-content">
-        <!-- MODAL DE ESTOQUE NA NUVEM -->
+        
         <div id="cloud-modal-overlay">
-            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-3xl flex flex-col max-h-[80vh] overflow-hidden card-animation border border-slate-200">
-                <div class="px-6 py-5 border-b border-slate-100 flex justify-between items-center bg-slate-50">
-                    <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2">
+            <div class="bg-white rounded-3xl shadow-2xl w-full max-w-4xl flex flex-col max-h-[90vh] overflow-hidden card-animation border border-slate-200 relative">
+                
+                <div class="px-6 py-4 border-b border-slate-100 flex flex-col sm:flex-row justify-between items-center bg-slate-50 gap-4 pr-16">
+                    <h3 class="font-black text-slate-800 uppercase tracking-tight flex items-center gap-2 shrink-0">
                         <i data-lucide="cloud" class="w-5 h-5 text-violet-600"></i> KITS NO ESTOQUE
                     </h3>
-                    <button onclick="fecharEstoqueNuvem()" class="text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm">
-                        <i data-lucide="x" class="w-4 h-4"></i>
-                    </button>
+                    
+                    <div class="relative w-full max-w-md">
+                        <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400"></i>
+                        <input type="text" id="search-nuvem-input" onkeyup="filtrarNuvem()" placeholder="Pesquisar kit, chamado, cliente, serviço ou serial..." class="w-full pl-10 pr-4 py-2 bg-white border border-slate-200 rounded-xl text-xs font-medium outline-none focus:border-violet-500 focus:ring-1 focus:ring-violet-500 transition-all shadow-sm">
+                    </div>
                 </div>
-                <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white"></div>
+
+                <button onclick="fecharEstoqueNuvem()" class="absolute top-4 right-5 text-slate-400 hover:text-red-500 transition-colors bg-white border border-slate-200 p-1.5 rounded-lg shadow-sm z-10">
+                    <i data-lucide="x" class="w-4 h-4"></i>
+                </button>
+
+                <div id="cloud-modal-list" class="p-4 overflow-y-auto flex-1 bg-white custom-scrollbar"></div>
             </div>
         </div>
 
@@ -133,7 +153,6 @@
                         </a>
                     </div>
 
-                    <!-- Perfil do Usuário e Botão de Sair -->
                     <div class="flex items-center gap-3 pl-3 ml-1 border-l border-slate-200">
                         <div class="hidden md:block text-right">
                             <p class="text-[8px] font-bold text-slate-400 uppercase leading-tight">Usuário Logado</p>
@@ -273,27 +292,41 @@
         firebase.auth().onAuthStateChanged((user) => {
             hideLoading();
             if (user) {
-                // Logado com sucesso
                 document.getElementById('login-screen').style.display = 'none';
                 document.getElementById('app-content').style.display = 'block';
                 
-                // Atualiza o nome no topo
                 const userNameEl = document.getElementById('user-name-display');
                 if(userNameEl) {
                     let firstName = user.displayName ? user.displayName.split(' ')[0] : user.email.split('@')[0];
                     userNameEl.innerText = firstName;
                 }
-
-                // Renderiza os dados do LocalStorage
                 render();
                 updateStats();
                 lucide.createIcons();
             } else {
-                // Deslogado (Esconde o App e Mostra Login)
                 document.getElementById('login-screen').style.display = 'flex';
                 document.getElementById('app-content').style.display = 'none';
             }
         });
+
+        // ==========================================
+        // FILTRAGEM INTELIGENTE DO MODAL (NOVIDADE)
+        // ==========================================
+        function filtrarNuvem() {
+            const termo = document.getElementById('search-nuvem-input').value.toLowerCase();
+            const cards = document.querySelectorAll('.nuvem-card-item'); // Nova classe nos cards
+            
+            cards.forEach(card => {
+                // Lê todo o texto dentro do card (id, chamado, cliente, serviço, seriais)
+                const textoDoCard = card.innerText.toLowerCase();
+                
+                if (textoDoCard.includes(termo)) {
+                    card.style.display = 'flex';
+                } else {
+                    card.style.display = 'none';
+                }
+            });
+        }
 
         // ==========================================
         // FUNÇÕES DO MODAL (ESTOQUE NA NUVEM)
@@ -301,6 +334,10 @@
         function abrirEstoqueNuvem() {
             const modal = document.getElementById('cloud-modal-overlay');
             const lista = document.getElementById('cloud-modal-list');
+            
+            // Limpa o input da busca sempre que abrir
+            document.getElementById('search-nuvem-input').value = '';
+            
             modal.style.display = 'flex';
             lista.innerHTML = '<div class="text-center text-violet-500 py-10 font-bold text-xs animate-pulse">Carregando Estoque...</div>';
 
@@ -341,7 +378,7 @@
                     if(previewHTML === '') previewHTML = '<span class="text-[9px] text-slate-400 italic">Nenhum serial bipado neste kit</span>';
                     
                     lista.innerHTML += `
-                        <div class="flex flex-col bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group gap-2">
+                        <div class="nuvem-card-item flex flex-col bg-slate-50 p-4 rounded-xl border border-slate-200 mb-3 hover:border-violet-300 hover:shadow-sm transition-all group gap-2">
                             <div class="flex flex-col md:flex-row justify-between items-start md:items-center w-full gap-3">
                                 <div class="flex items-center gap-2">
                                     <p class="font-black text-slate-800 text-[14px] tracking-tight flex items-center gap-1.5">
@@ -385,7 +422,7 @@
         }
 
         // ==========================================
-        // SISTEMA DE IMPRESSÃO (BLINDADO COM POSITION ABSOLUTE)
+        // SISTEMA DE IMPRESSÃO
         // ==========================================
         function imprimirEtiquetaNuvem(id) {
             const janelaImpressao = window.open('', '_blank', 'width=400,height=600');
@@ -430,81 +467,43 @@
                 <head>
                     <title>Etiqueta Kit ${titulo}</title>
                     <style>
-                        @page { 
-                            margin: 0 !important; 
-                            size: 29mm 42mm; 
-                        }
+                        @page { margin: 0 !important; size: 29mm 42mm; }
                         body {
-                            margin: 0 !important;
-                            padding: 0 !important;
-                            width: 29mm;
-                            height: 42mm;
-                            background: white;
-                            overflow: hidden;
-                            position: relative;
+                            margin: 0 !important; padding: 0 !important;
+                            width: 29mm; height: 42mm;
+                            background: white; overflow: hidden; position: relative;
                             font-family: 'Arial', sans-serif;
                         }
                         .label-wrapper {
-                            position: absolute;
-                            top: 1mm;
-                            left: 28mm; 
-                            width: 40mm;
-                            height: 27mm;
-                            transform-origin: top left;
-                            transform: rotate(90deg); 
-                            display: flex;
-                            flex-direction: row;
-                            align-items: center;
-                            justify-content: flex-start;
-                            box-sizing: border-box;
+                            position: absolute; top: 1mm; left: 28mm; 
+                            width: 40mm; height: 27mm;
+                            transform-origin: top left; transform: rotate(90deg); 
+                            display: flex; flex-direction: row; align-items: center;
+                            justify-content: flex-start; box-sizing: border-box;
                         }
                         .qr-col {
-                            width: 13mm;
-                            height: 13mm;
-                            display: flex;
-                            justify-content: center;
-                            align-items: center;
-                            margin-right: 1.5mm;
-                            flex-shrink: 0;
+                            width: 13mm; height: 13mm; display: flex;
+                            justify-content: center; align-items: center;
+                            margin-right: 1.5mm; flex-shrink: 0;
                         }
-                        .qr-code { 
-                            width: 100%; 
-                            height: 100%; 
-                        }
+                        .qr-code { width: 100%; height: 100%; }
                         .text-col {
-                            flex: 1;
-                            display: flex;
-                            flex-direction: column;
-                            justify-content: center;
-                            text-align: left;
-                            overflow: hidden;
+                            flex: 1; display: flex; flex-direction: column;
+                            justify-content: center; text-align: left; overflow: hidden;
                         }
                         .title { 
-                            font-size: 8.5pt; 
-                            font-weight: 900; 
-                            margin-bottom: 1mm; 
-                            text-transform: uppercase; 
-                            line-height: 1.1;
-                            color: #000;
-                            letter-spacing: -0.2px;
-                            word-wrap: break-word;
+                            font-size: 8.5pt; font-weight: 900; margin-bottom: 1mm; 
+                            text-transform: uppercase; line-height: 1.1; color: #000;
+                            letter-spacing: -0.2px; word-wrap: break-word;
                         }
                         .service { 
-                            font-size: 6.5pt; 
-                            font-weight: bold; 
-                            margin-bottom: 1.5mm; 
-                            border-bottom: 1px dashed #000; 
-                            padding-bottom: 1mm; 
-                            line-height: 1.1;
-                            color: #000;
-                            word-wrap: break-word;
+                            font-size: 6.5pt; font-weight: bold; margin-bottom: 1.5mm; 
+                            border-bottom: 1px dashed #000; padding-bottom: 1mm; 
+                            line-height: 1.1; color: #000; word-wrap: break-word;
                         }
                         .branch { 
-                            font-size: 7.5pt; 
-                            font-weight: 800; 
-                            line-height: 1.1;
-                            color: #000;
-                            word-wrap: break-word;
+                            font-size: 7.5pt; font-weight: 800; line-height: 1.1;
+                            color: #000; word-wrap: break-word;
                         }
                     </style>
                 </head>
